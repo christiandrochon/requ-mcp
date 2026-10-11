@@ -4,6 +4,25 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+## [2.3.0] – 2026-10-11
+
+### Added
+- **Delete a phase.** `delete_phase` (MCP), `DELETE /api/phases/:id` and a
+  delete button on each phase in the Overview strip. The requirements, screens
+  and ADRs on the phase are kept and become unassigned; the active phase is
+  cleared if it pointed there. Needs `phase:write`.
+- **Delete a requirement.** `delete_requirement` (MCP),
+  `DELETE /api/requirements/:id` and a **Delete** button on the expanded
+  requirement. Refused — `REQUIREMENT_IN_USE`, HTTP 409, with the linked story
+  ids — while any user story still traces to it; ADRs that reference it drop
+  the reference. Needs `requirement:write`.
+- Both deletes are recorded in the audit log, and in the change history: the
+  deleted item as `deleted`, and every requirement, screen or ADR a phase
+  delete unassigned as `updated`. They write to the open draft (REST takes
+  `?version=`) and are refused on a locked version (`VERSION_LOCKED`, 409).
+- `npm run smoke:delete` covers both, over MCP and REST; set
+  `REQU_DELETE_PG_URL` to run it against Postgres.
+
 ## [2.2.0] – 2026-10-10
 
 ### Added
