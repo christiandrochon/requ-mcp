@@ -98,6 +98,7 @@ import { authenticateRequest, clientIp, reauthorizeForProject } from "./auth/aut
 import { devPrincipal, ForbiddenError, requirePermission, UnauthorizedError } from "./auth/model.js";
 import { permissionForTool } from "./auth/rbac.js";
 import { authStore } from "./auth/store.js";
+import { deletePhase, deleteRequirement, InUseError } from "./deletion.js";
 import { ensureSeeded, warnUnknownConfiguredRoles } from "./auth/role-catalogue.js";
 
 const now = () => new Date().toISOString();
@@ -1288,6 +1289,26 @@ tool(
 );
 
 tool(
+  "delete_requirement",
+  {
+    title: "Delete requirement",
+    description:
+      "Delete a requirement from the working version. Refused while any user story is linked to it — re-point or remove those stories first. ADRs that reference it simply drop the reference. Recorded in the audit log and the change history.",
+    inputSchema: { id: z.string().regex(/^REQ-\d+$/) },
+  },
+  async (args, store) => {
+    await ensureInit(store);
+    try {
+      return json(await deleteRequirement(store, args.id));
+    } catch (e) {
+      if (e instanceof InUseError) return fail(e.message, { code: e.code, ...e.linked });
+      throw e;
+    }
+  },
+  "spec",
+);
+
+tool(
   "assign_requirements_to_phase",
   {
     title: "Assign requirements to a phase in bulk",
@@ -1694,6 +1715,21 @@ tool(
   },
   "spec",
   "phases",
+);
+
+tool(
+  "delete_phase",
+  {
+    title: "Delete phase",
+    description:
+      "Delete a phase from the working version. Requirements, screens and ADRs assigned to it are kept and become unassigned; the active phase is cleared if it pointed here. Recorded in the audit log and the change history.",
+    inputSchema: { id: z.string().min(1) },
+  },
+  async (args, store) => {
+    await ensureInit(store);
+    return json(await deletePhase(store, args.id));
+  },
+  "spec",
 );
 
 tool(

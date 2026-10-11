@@ -80,6 +80,8 @@ document.addEventListener('alpine:init', function () {
       reqComponentFilter: 'all',
       reqPhaseFilter: 'all',
       reqExpanded: null,
+      // A refused or failed delete: the message, and the stories that block it.
+      deleteError: { message: '', stories: [] },
       reqSortBy: 'id',
 
       // ── Story filters ────────────────────────────────────────────────────────
@@ -1507,6 +1509,56 @@ document.addEventListener('alpine:init', function () {
         } else {
           this.allureStatus = { available: false, url: '/allure/' };
         }
+      },
+
+      /** True when the viewed baseline is frozen, so nothing in it can be deleted. */
+      viewedVersionLocked() {
+        var v = this.activeVersion || this.versionMeta.currentVersion;
+        var row = this.versions.find(function (x) { return x.version === v; });
+        return !!row && row.status === 'locked';
+      },
+
+      async deleteRequirementItem(req) {
+        this.deleteError = { message: '', stories: [] };
+        if (!window.confirm('Delete requirement ' + req.id + ' "' + req.title + '"?\n\nThis is recorded in the audit log.')) return;
+        try {
+          var res = await window.fetch(this.apiUrl('/api/requirements/' + encodeURIComponent(req.id)), { method: 'DELETE' });
+          var body = await res.json().catch(function () { return {}; });
+          if (!res.ok) {
+            this.deleteError = { message: body.error || 'Could not delete ' + req.id + '.', stories: body.linkedStories || [] };
+            return;
+          }
+          if (this.reqExpanded === req.id) this.reqExpanded = null;
+          await Promise.all([this.loadRequirements(), this.loadAdrs(), this.loadCoverage(), this.loadSummary()]);
+        } catch (e) {
+          this.deleteError = { message: 'Could not reach the server.', stories: [] };
+        }
+      },
+
+      async deletePhaseItem(phase) {
+        this.deleteError = { message: '', stories: [] };
+        var assigned = this.requirements.filter(function (r) { return r.phase === phase.id; }).length;
+        var msg = 'Delete phase "' + (phase.name || phase.id) + '"?';
+        if (assigned) msg += '\n\n' + assigned + ' requirement' + (assigned === 1 ? '' : 's') + ' will be unassigned (they are kept).';
+        if (!window.confirm(msg + '\n\nThis is recorded in the audit log.')) return;
+        try {
+          var res = await window.fetch(this.apiUrl('/api/phases/' + encodeURIComponent(phase.id)), { method: 'DELETE' });
+          var body = await res.json().catch(function () { return {}; });
+          if (!res.ok) {
+            this.deleteError = { message: body.error || 'Could not delete phase ' + phase.id + '.', stories: [] };
+            return;
+          }
+          if (this.reqPhaseFilter === phase.id) this.reqPhaseFilter = 'all';
+          if (this.scenariosPhase === phase.id) this.scenariosPhase = '';
+          await Promise.all([this.loadPhases(), this.loadRequirements(), this.loadSummary(), this.loadCoverage()]);
+        } catch (e) {
+          this.deleteError = { message: 'Could not reach the server.', stories: [] };
+        }
+      },
+
+      openStoryById(id) {
+        var story = this.stories.find(function (s) { return s.id === id; });
+        if (story) this.openStoryDetail(story);
       },
 
       async loadPhases() {
