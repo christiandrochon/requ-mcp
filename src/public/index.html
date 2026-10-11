@@ -799,8 +799,24 @@
                 <template x-if="phase.status === 'planned'"><span class="w-2 h-2 rounded-full bg-slate-300"></span></template>
                 <span class="text-sm font-medium text-slate-700" x-text="phase.name || phase.id"></span>
                 <span class="badge" :class="phaseBadge(phase.status)" x-text="phase.status"></span>
+                <button x-show="can('phase:write') && !viewedVersionLocked()" x-cloak
+                  class="text-slate-400 hover:text-red-600 ml-1"
+                  @click="deletePhaseItem(phase)"
+                  :aria-label="'Delete phase ' + (phase.name || phase.id)" :title="'Delete phase ' + (phase.name || phase.id)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                </button>
               </div>
             </template>
+          </div>
+          <div class="px-4 pb-4" x-show="deleteError.message && tab === 'overview'" x-cloak>
+            <div x-show="deleteError.message" x-cloak role="alert"
+             class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
+          <span x-text="deleteError.message"></span>
+          <template x-for="sid in deleteError.stories" :key="sid">
+            <button class="chip hover:bg-amber-100" @click="openStoryById(sid)" x-text="sid"></button>
+          </template>
+          <button class="ml-auto text-amber-700 hover:underline" @click="deleteError = { message: '', stories: [] }">Dismiss</button>
+        </div>
           </div>
         </div>
       </div>
@@ -809,6 +825,15 @@
            TAB: REQUIREMENTS
       ══════════════════════════════════════════════════════════ -->
       <div id="panel-requirements" role="tabpanel" aria-labelledby="tab-requirements" tabindex="0" x-show="tab === 'requirements'" class="tab-panel space-y-4">
+
+        <div x-show="deleteError.message" x-cloak role="alert"
+             class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
+          <span x-text="deleteError.message"></span>
+          <template x-for="sid in deleteError.stories" :key="sid">
+            <button class="chip hover:bg-amber-100" @click="openStoryById(sid)" x-text="sid"></button>
+          </template>
+          <button class="ml-auto text-amber-700 hover:underline" @click="deleteError = { message: '', stories: [] }">Dismiss</button>
+        </div>
 
         <!-- Filters -->
         <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-center gap-3">
@@ -964,6 +989,13 @@
                                     :aria-label="'Copy link to ' + req.id">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
                                     <span x-text="linkCopied === routePath('requirements', req.id) ? 'Copied' : 'Copy link'"></span>
+                                  </button>
+                                  <button x-show="can('requirement:write') && !viewedVersionLocked()" x-cloak
+                                    class="btn-secondary text-xs flex items-center gap-1.5 text-red-700 hover:bg-red-50"
+                                    @click.stop="deleteRequirementItem(req)"
+                                    :aria-label="'Delete ' + req.id">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                                    Delete
                                   </button>
                                 </div>
                                 <div class="mt-2 flex flex-wrap gap-1">

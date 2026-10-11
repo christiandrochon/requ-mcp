@@ -632,11 +632,11 @@ usual one — with `REQU_LDAP_ALLOW_PLAINTEXT=true` while it is plaintext.
 |------|-------|---------|
 | `init_project` | setup | Verify the Conductor folder exists & is valid, then create the project (requires a `key`), record Conductor + report path, optional first phase |
 | `check_conductor` | setup | Inspect the Conductor folder (exists? valid? name? feature count?) without writing anything |
-| `create_requirement` / `list_requirements` / `get_requirement` / `update_requirement` | server | Manage imported requirements (with `components`) |
+| `create_requirement` / `list_requirements` / `get_requirement` / `update_requirement` / `delete_requirement` | server | Manage imported requirements (with `components`). Deleting is refused while a user story still links to the requirement |
 | `assign_requirements_to_phase` | release | Move many requirements onto a phase at once — by explicit `ids` or by filter (status / component / tag / current phase); `dryRun` previews |
 | `create_user_story` | PO | Author a story (rejects unless it links ≥1 existing requirement) |
 | `update_user_story` / `add_acceptance_criterion` / `delete_acceptance_criterion` / `list_user_stories` / `get_user_story` | PO | Edit stories & criteria (deleting a criterion never renumbers the others) |
-| `create_phase` / `list_phases` / `update_phase` / `set_active_phase` | release | Manage phases/releases |
+| `create_phase` / `list_phases` / `update_phase` / `delete_phase` / `set_active_phase` | release | Manage phases/releases. Deleting a phase keeps its requirements, screens and ADRs and leaves them unassigned |
 | `list_links` | tester | Show which scenarios are tagged to which story; flag dangling `@US-xxx` tags and stories with no scenario |
 | `create_scenario` / `update_scenario` / `get_scenario` / `delete_scenario` | tester/PO | Manage requ-owned cucumber scenarios (gherkin content, tags, story links) — see [Scenarios](#scenarios) |
 | `list_scenarios` | tester/PO | List/filter scenarios by story, requirement, phase, feature, and tags (cucumber tag expression) |

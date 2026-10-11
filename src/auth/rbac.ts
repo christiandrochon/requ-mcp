@@ -25,6 +25,7 @@ const TOOL_PERMISSIONS: Record<string, Permission> = {
   // --- requirements ---
   create_requirement: "requirement:write",
   update_requirement: "requirement:write",
+  delete_requirement: "requirement:write",
   assign_requirements_to_phase: "requirement:write",
 
   // --- user stories ---
@@ -56,6 +57,7 @@ const TOOL_PERMISSIONS: Record<string, Permission> = {
   update_component: "component:write",
   create_phase: "phase:write",
   update_phase: "phase:write",
+  delete_phase: "phase:write",
   set_active_phase: "phase:write",
 
   // --- delivery progress ---
@@ -130,6 +132,8 @@ const ROUTE_PERMISSIONS: Array<{ method: string; pattern: RegExp; permission: Pe
   { method: "POST",  pattern: /^\/api\/versions\/active$/,           permission: "version:manage" },
   { method: "POST",  pattern: /^\/api\/scenarios\/execute$/,        permission: "execution:write" },
   { method: "POST",  pattern: /^\/api\/executions$/,                permission: "execution:write" },
+  { method: "DELETE", pattern: /^\/api\/requirements\/[^/]+$/,     permission: "requirement:write" },
+  { method: "DELETE", pattern: /^\/api\/phases\/[^/]+$/,           permission: "phase:write" },
   { method: "GET",   pattern: /^\/api\/audit$/,                     permission: "audit:read" },
   { method: "GET",   pattern: /^\/api\/history$/,                   permission: "history:read" },
   { method: "GET",   pattern: /^\/api\/history\/[^/]+\/[^/]+$/,     permission: "history:read" },

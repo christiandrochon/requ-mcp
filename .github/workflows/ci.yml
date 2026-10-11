@@ -68,6 +68,9 @@ jobs:
       - name: Smoke test — specification versions
         run: npm run smoke:versions
 
+      - name: Smoke test — deleting phases and requirements
+        run: npm run smoke:delete
+
       - name: Smoke test — authentication, RBAC, 2FA and audit
         run: npm run smoke:auth
 

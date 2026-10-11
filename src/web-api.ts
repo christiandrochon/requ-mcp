@@ -46,6 +46,7 @@ import { newContext, runWithContext, type RequestContext } from "./auth/context.
 import { can, devPrincipal, type Permission, type Principal } from "./auth/model.js";
 import { isPublicRoute, permissionForRoute } from "./auth/rbac.js";
 import { handleAuthRoutes } from "./auth/routes.js";
+import { deletePhase, deleteRequirement, InUseError, LockedVersionError } from "./deletion.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -645,6 +646,40 @@ async function resolveStore(
   const store = stores.get(slug);
   if (!store) return { status: "unknown_project", slug };
   return atVersion(store, slug);
+}
+
+/**
+ * The store a specification delete writes to. An explicit `?version=` wins;
+ * otherwise it is the open draft, as for the equivalent MCP tool — a delete is
+ * a scope change, and scope changes belong on the next baseline.
+ */
+async function resolveSpecStore(
+  stores: Map<string, AnyHttpStore>,
+  searchParams: URLSearchParams,
+): Promise<StoreResult> {
+  const r = await resolveStore(stores, searchParams);
+  if (r.status !== "ok" || searchParams.get("version")) return r;
+  // Outside any route's try/catch: an unhandled throw here takes the server down.
+  if (!(await r.store.isInitialized())) return { status: "not_initialized" };
+  const cfg = await r.store.readConfig();
+  const target = cfg.draftVersion ?? cfg.currentVersion;
+  if (!target) return r;
+  const bound = new URLSearchParams(searchParams);
+  bound.set("version", target);
+  return resolveStore(stores, bound);
+}
+
+/** Answer for a failed delete: in-use and locked-version are the caller's to fix. */
+function deletionError(res: ServerResponse, err: unknown, req: IncomingMessage): void {
+  if (err instanceof InUseError) {
+    const body = JSON.stringify({ error: err.message, code: err.code, ...err.linked });
+    res.writeHead(409, { ...CORS_HEADERS, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) });
+    res.end(body);
+  } else if (err instanceof LockedVersionError) {
+    jsonError(res, 409, err.message, "VERSION_LOCKED");
+  } else {
+    internalError(res, err, req);
+  }
 }
 
 function handleStoreResult(
@@ -1326,6 +1361,21 @@ async function routeWebRequest(
       }
     }
 
+    // --- DELETE /api/requirements/:id --- (refused while a story links to it)
+    {
+      const params = matchRoute(pathname, method, "/api/requirements/:id", "DELETE");
+      if (params !== null) {
+        const r = await resolveSpecStore(stores, searchParams);
+        if (!handleStoreResult(res, r)) return true;
+        try {
+          const result = await deleteRequirement(r.store, params.id);
+          if (!result.deleted) { jsonError(res, 404, `Requirement ${params.id} not found`, "NOT_FOUND"); return true; }
+          jsonOk(res, result);
+        } catch (err) { deletionError(res, err, req); }
+        return true;
+      }
+    }
+
     // --- GET /api/stories ---
     if (matchRoute(pathname, method, "/api/stories", "GET") !== null) {
       const r = await resolveStore(stores, searchParams);
@@ -1661,6 +1711,21 @@ async function routeWebRequest(
         internalError(res, err, req);
       }
       return true;
+    }
+
+    // --- DELETE /api/phases/:id --- (its requirements, screens and ADRs become unassigned)
+    {
+      const params = matchRoute(pathname, method, "/api/phases/:id", "DELETE");
+      if (params !== null) {
+        const r = await resolveSpecStore(stores, searchParams);
+        if (!handleStoreResult(res, r)) return true;
+        try {
+          const result = await deletePhase(r.store, params.id);
+          if (!result.deleted) { jsonError(res, 404, `Phase ${params.id} not found`, "NOT_FOUND"); return true; }
+          jsonOk(res, result);
+        } catch (err) { deletionError(res, err, req); }
+        return true;
+      }
     }
 
     // --- GET /api/config ---
