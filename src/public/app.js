@@ -1049,6 +1049,12 @@ document.addEventListener('alpine:init', function () {
         }
       },
 
+      /** Load role options before member selects bind their saved values. */
+      async loadAccess() {
+        await this.loadRoles();
+        await Promise.all([this.loadMembers(), this.loadAdminUsers()]);
+      },
+
       /** Every role that can be given to someone on the project in view. */
       assignableRoles() {
         return this.projectRoles.length ? this.projectRoles : this.sharedRoles;
@@ -2089,7 +2095,7 @@ document.addEventListener('alpine:init', function () {
         if (id === 'adrs')       { this.loadAdrs(); }
         if (id === 'versions')   { this.loadVersions(); }
         if (id === 'audit')      { this.auditPage = 1; this.loadAudit(); this.loadActivity(); }
-        if (id === 'access')     { this.loadMembers(); this.loadRoles(); this.loadAdminUsers(); }
+        if (id === 'access')     { this.loadAccess(); }
         // Lazy: fetches on first visit, re-measures the edges on later visits
         // (the panel was display:none, so every node rect was 0×0 until now).
         if (id === 'traceability') { this.loadTraceability(); }

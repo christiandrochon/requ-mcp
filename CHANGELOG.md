@@ -4,6 +4,13 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+## [2.3.1] – 2026-10-14
+
+### Fixed
+- The project member role selector now keeps the assigned role after a page
+  refresh instead of falling back visually to Administrator while role options
+  are still loading.
+
 ## [2.3.0] – 2026-10-11
 
 ### Added

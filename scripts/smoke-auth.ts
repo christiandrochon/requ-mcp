@@ -799,6 +799,10 @@ async function main() {
       check("membership: changing a role replaces the old one", demoted.body.projectRole === "viewer", demoted.body);
       check("membership: the old role is really gone",
         JSON.stringify(demoted.body.roles) === JSON.stringify(["viewer"]), demoted.body.roles);
+      const membersAfterDemotion = await getJson(`${h.base}/api/projects/${slug}/members`, { Cookie: vera.cookie });
+      const refreshedNora = (membersAfterDemotion.body.members ?? []).find((x: any) => x.userId === "nora");
+      check("membership: a refreshed member list keeps the changed role",
+        refreshedNora?.projectRole === "viewer", refreshedNora);
 
       // --- removal ---
       const removed = await fetch(`${h.base}/api/projects/${slug}/members/nora`, {
