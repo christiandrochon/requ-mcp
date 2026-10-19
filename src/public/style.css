@@ -338,16 +338,21 @@ textarea.filter-select { line-height: 1.45; }
   margin-bottom: 20px;
 }
 
-/* ── Mobile — horizontal scrollable tab row ─────────────── */
-@media (max-width: 640px) {
-  .tab-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .tab-scroll::-webkit-scrollbar { display: none; }
-  .tab-scroll .tab-list { min-width: max-content; }
+/* ── Horizontally scrollable tab row (every width) ──────────
+   The scrollbar stays hidden; the ‹ › buttons and edge fades in the nav are
+   the affordance. scroll-padding keeps a revealed tab clear of those
+   44px-wide buttons (plus a margin). */
+.tab-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-padding-inline: 52px; /* 44px buttons + safety margin */
+}
+.tab-scroll::-webkit-scrollbar { display: none; }
+.tab-scroll .tab-list { min-width: max-content; }
 
+@media (max-width: 640px) {
   .data-table-wrap { overflow-x: auto; }
 }
 

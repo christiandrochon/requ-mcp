@@ -123,23 +123,25 @@
        HEADER
   ═══════════════════════════════════════════════════════════════ -->
   <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900 text-white shadow-lg" style="height:56px;">
-    <div class="flex items-center justify-between h-full px-5 max-w-screen-2xl mx-auto">
+    <div class="flex items-center justify-between gap-1 sm:gap-3 h-full px-1 sm:px-5 max-w-screen-2xl mx-auto">
       <!-- Logo + project name / switcher -->
-      <div class="flex items-center gap-3 shrink-0">
-        <span class="text-indigo-400 font-bold text-xl select-none" aria-hidden="true">◈</span>
-        <h1 class="font-semibold text-white tracking-tight text-base">requ<span class="sr-only"> — Requirements dashboard</span></h1>
-        <span class="text-slate-500 text-xs font-mono" x-show="appVersion" x-text="'v' + appVersion" aria-label="version"></span>
+      <div class="flex items-center gap-1 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+        <span class="shrink-0 text-indigo-400 font-bold text-xl select-none" aria-hidden="true">◈</span>
+        <!-- Below sm the wordmark is visually hidden (still announced) to make room for the selects. -->
+        <h1 class="sr-only sm:not-sr-only shrink-0 font-semibold text-white tracking-tight text-base">requ<span class="sr-only"> — Requirements dashboard</span></h1>
+        <span class="hidden lg:inline text-slate-500 text-xs font-mono" x-show="appVersion" x-text="'v' + appVersion" aria-label="version"></span>
         <!-- Static name when single project; dropdown when multiple -->
         <template x-if="projects.length <= 1">
-          <span class="text-slate-500 text-xs hidden sm:inline" x-text="config?.name ? '/ ' + config.name : ''"></span>
+          <span class="text-slate-500 text-xs hidden sm:inline truncate min-w-0" x-text="config?.name ? '/ ' + config.name : ''"></span>
         </template>
-        <span class="hidden md:inline text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700"
+        <span class="hidden xl:inline whitespace-nowrap truncate max-w-[180px] shrink-0 text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700"
           x-text="'Phase: ' + (coveragePhase ? (phases.find(p => p.id === coveragePhase)?.name || coveragePhase) : 'All phases')"
+          :title="'Phase: ' + (coveragePhase ? (phases.find(p => p.id === coveragePhase)?.name || coveragePhase) : 'All phases')"
           aria-label="Selected coverage phase"></span>
         <template x-if="projects.length > 1">
           <select
-            class="filter-select filter-select--dark text-xs bg-slate-800 border-slate-700 focus:border-indigo-400"
-            style="width:140px;"
+            class="filter-select filter-select--dark min-w-[50px] sm:min-w-[72px] min-h-[44px] sm:min-h-0 pl-2 pr-6 sm:pl-[10px] sm:pr-8 text-xs bg-slate-800 border-slate-700 focus:border-indigo-400"
+            style="max-width:140px;"
             :value="activeProject ? activeProject.slug : ''"
             @change="switchProject($event.target.value)"
             aria-label="Switch project">
@@ -153,8 +155,8 @@
         <!-- Specification version: every tab reads through this selection. -->
         <template x-if="versions.length > 1">
           <select
-            class="filter-select filter-select--dark text-xs bg-slate-800 border-slate-700 focus:border-indigo-400"
-            style="width:150px;"
+            class="filter-select filter-select--dark min-w-[76px] sm:min-w-[96px] min-h-[44px] sm:min-h-0 pl-2 pr-6 sm:pl-[10px] sm:pr-8 text-xs bg-slate-800 border-slate-700 focus:border-indigo-400"
+            style="max-width:150px;"
             :value="activeVersion"
             @change="switchVersion($event.target.value)"
             aria-label="Switch specification version">
@@ -168,75 +170,75 @@
       </div>
 
       <!-- Right side: phase + stats + live -->
-      <div class="flex items-center gap-4 shrink-0">
+      <div class="flex items-center gap-1 sm:gap-3 shrink-0">
         <!-- Active phase badge -->
-        <div x-show="summary?.activePhase" class="flex items-center gap-2 bg-slate-800 rounded-full px-3 py-1">
+        <div x-show="summary?.activePhase" class="hidden lg:flex items-center gap-2 bg-slate-800 rounded-full px-3 py-1">
           <span class="pulse-dot"></span>
-          <span class="text-xs font-medium text-slate-200" x-text="activePhaseLabel() || summary?.activePhase"></span>
+          <span class="max-w-[140px] truncate text-xs font-medium text-slate-200" x-text="activePhaseLabel() || summary?.activePhase"></span>
         </div>
         <!-- Mini stats (hidden on mobile) -->
-        <div class="hidden sm:flex items-center gap-4 text-xs text-slate-400">
+        <div class="hidden xl:flex items-center gap-4 text-xs text-slate-400">
           <span>
             <span class="text-white font-semibold" x-text="summaryVal('requirements')"></span> reqs
           </span>
           <span>
             <span class="text-white font-semibold" x-text="summaryVal('stories')"></span> stories
           </span>
-          <span class="text-indigo-400 font-semibold" x-text="pct(summaryVal('verifiedPct')) + '% phase'"></span>
-          <span class="text-slate-600">·</span>
-          <span class="text-slate-300 font-semibold" x-text="pct(summaryVal('verifiedPctCumulative')) + '% project'"></span>
-          <span class="text-slate-600">·</span>
-          <span class="text-emerald-400 font-semibold cursor-help"
+          <span class="hidden 2xl:inline text-indigo-400 font-semibold" x-text="pct(summaryVal('verifiedPct')) + '% phase'"></span>
+          <span class="hidden 2xl:inline text-slate-600">·</span>
+          <span class="hidden 2xl:inline text-slate-300 font-semibold" x-text="pct(summaryVal('verifiedPctCumulative')) + '% project'"></span>
+          <span class="hidden 2xl:inline text-slate-600">·</span>
+          <span class="hidden 2xl:inline text-emerald-400 font-semibold cursor-help"
                 title="Verified (delivered): excludes planned phases that have not started"
                 x-text="pct(summaryVal('deliveredVerifiedPct')) + '% delivered'"></span>
         </div>
         <!-- Export / Import buttons -->
         <button
           @click="exportProject()"
-          class="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          class="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
           title="Export project data as JSON"
           aria-label="Export project data as JSON">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 2v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span class="hidden md:inline">Export</span>
+          <span class="hidden 2xl:inline">Export</span>
         </button>
         <button
           @click="importDialogOpen = true"
-          class="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          class="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
           title="Import project data from JSON"
           aria-label="Import project data from JSON">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M8 14V5M4 9l4-4 4 4M2 3h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span class="hidden md:inline">Import</span>
+          <span class="hidden 2xl:inline">Import</span>
         </button>
         <!-- SSE live dot -->
         <div class="flex items-center gap-1.5 text-xs text-slate-500" title="Live updates">
           <span class="w-2 h-2 rounded-full bg-green-500 opacity-80" style="animation: pulse-ring 2.5s ease-out infinite;" aria-hidden="true"></span>
-          <span class="hidden sm:inline" aria-hidden="true">live</span>
+          <span class="hidden lg:inline" aria-hidden="true">live</span>
           <span class="sr-only">Live updates active</span>
         </div>
 
         <!-- Identity: who you are, what you may do, and how to get a token -->
-        <div class="flex items-center gap-2 pl-2 border-l border-slate-700">
+        <div class="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-slate-700 shrink-0">
           <span x-show="auth.warning" x-cloak
                 class="hidden lg:inline text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"
                 :title="auth.warning">auth off</span>
           <button
             @click="openAccount()"
-            class="flex items-center gap-2 text-xs text-slate-300 hover:text-white transition-colors"
-            :title="auth.enabled ? 'Account and access tokens' : 'Access tokens (authentication is disabled)'"
-            aria-label="Open account and access tokens">
+            class="min-w-[44px] min-h-[44px] inline-flex items-center justify-center gap-2 text-xs text-slate-300 hover:text-white transition-colors"
+            :title="(auth.displayName || auth.username || 'Account') + (topRole() ? ' · ' + topRole() : '')"
+            :aria-label="'Account: ' + (auth.displayName || auth.username || 'Account') + ' — open account and access tokens'">
             <span class="w-6 h-6 rounded-full bg-indigo-500/25 text-indigo-200 flex items-center justify-center text-[10px] font-semibold uppercase"
                   x-text="(auth.displayName || auth.username || '?').slice(0, 2)"></span>
-            <span class="hidden md:inline max-w-[130px] truncate" x-text="auth.displayName || auth.username || 'Account'"></span>
+            <span class="hidden sm:inline max-w-[110px] truncate" x-text="auth.displayName || auth.username || 'Account'"></span>
             <span x-show="topRole()" x-cloak
                   class="hidden lg:inline text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300"
                   x-text="topRole()"></span>
           </button>
           <button x-show="auth.enabled" x-cloak @click="doLogout()"
-                  class="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                  class="min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-xs text-slate-400 hover:text-slate-200 transition-colors"
                   title="Sign out" aria-label="Sign out">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
@@ -248,8 +250,11 @@
   <!-- ═══════════════════════════════════════════════════════════
        TAB NAV
   ═══════════════════════════════════════════════════════════════ -->
-  <nav aria-label="Tab navigation" x-show="!notInitialized" class="fixed left-0 right-0 z-40 bg-white border-b border-slate-200 shadow-sm tab-scroll" style="top:56px;">
-    <div role="tablist" class="tab-list flex px-4 max-w-screen-2xl mx-auto" style="height:44px;">
+  <nav aria-label="Tab navigation" x-show="!notInitialized" class="fixed left-0 right-0 z-40 bg-white border-b border-slate-200 shadow-sm" style="top:56px;"
+       x-init="initTabScroller()">
+   <div class="relative max-w-screen-2xl mx-auto" style="height:44px;">
+    <div x-ref="tabScroller" class="tab-scroll h-full" @scroll.passive="updateTabOverflow()">
+    <div role="tablist" class="tab-list flex px-4" style="height:44px;">
       <template x-if="projects.length > 1">
           <button
             id="tab-global"
@@ -304,6 +309,21 @@
         ></button>
       </template>
     </div>
+    </div>
+    <!-- Scroll affordances: outside the tablist, shown only while tabs are
+         clipped on that side. Mouse/touch only — keyboard users have the
+         arrow-key ring (shiftFocus), which scrolls the focused tab into view. -->
+    <button type="button" x-show="tabOverflowLeft" x-cloak tabindex="-1"
+            @click="scrollTabs(-1)" aria-label="Scroll tabs left"
+            class="absolute inset-y-0 left-0 w-11 flex items-center justify-start pl-2 bg-gradient-to-r from-white via-white to-transparent text-slate-500 hover:text-slate-900">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button type="button" x-show="tabOverflowRight" x-cloak tabindex="-1"
+            @click="scrollTabs(1)" aria-label="Scroll tabs right"
+            class="absolute inset-y-0 right-0 w-11 flex items-center justify-end pr-2 bg-gradient-to-l from-white via-white to-transparent text-slate-500 hover:text-slate-900">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+   </div>
   </nav>
 
   <!-- ═══════════════════════════════════════════════════════════
@@ -865,7 +885,7 @@
             </template>
           </select>
           <!-- Phase -->
-          <select class="filter-select" x-model="reqPhaseFilter" aria-label="Filter by phase">
+          <select class="filter-select max-w-full min-w-0" x-model="reqPhaseFilter" aria-label="Filter by phase">
             <option value="all">All Phases</option>
             <option value="(none)">Unassigned</option>
             <template x-for="ph in [...phases].sort((a,b) => a.order - b.order)" :key="ph.id">
@@ -1048,7 +1068,7 @@
             </template>
           </div>
           <!-- Phase -->
-          <select class="filter-select" x-model="storyPhaseFilter" aria-label="Filter by phase">
+          <select class="filter-select max-w-full min-w-0" x-model="storyPhaseFilter" aria-label="Filter by phase">
             <option value="all">All Phases</option>
             <option value="(none)">Unassigned</option>
             <template x-for="ph in [...phases].sort((a,b) => a.order - b.order)" :key="ph.id">
@@ -1236,9 +1256,9 @@
 
         <!-- Controls -->
         <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-center gap-4">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 min-w-0 max-w-full">
             <label for="coverage-phase" class="text-sm font-medium text-slate-600">Phase:</label>
-            <select id="coverage-phase" class="filter-select" x-model="coveragePhase" aria-label="Select phase for coverage">
+            <select id="coverage-phase" class="filter-select max-w-full min-w-0" x-model="coveragePhase" aria-label="Select phase for coverage">
               <option value="">All phases</option>
               <template x-for="ph in [...phases].sort((a,b) => a.order - b.order)" :key="ph.id">
                 <option :value="ph.id" x-text="ph.name || ph.id"></option>
@@ -1500,9 +1520,9 @@
 
         <!-- Controls -->
         <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-center gap-4">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 min-w-0 max-w-full">
             <label for="trace-phase" class="text-sm font-medium text-slate-600">Phase:</label>
-            <select id="trace-phase" class="filter-select" x-model="tracePhase" aria-label="Select phase for the traceability chain">
+            <select id="trace-phase" class="filter-select max-w-full min-w-0" x-model="tracePhase" aria-label="Select phase for the traceability chain">
               <option value="">All phases</option>
               <template x-for="ph in [...phases].sort((a,b) => a.order - b.order)" :key="ph.id">
                 <option :value="ph.id" x-text="ph.name || ph.id"></option>
@@ -1991,9 +2011,9 @@
             <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
             <input type="text" class="search-input" placeholder="Filter by tag (e.g. manual)…" x-model="scenariosTag" aria-label="Filter by tag">
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 min-w-0 max-w-full">
             <label for="scenarios-phase" class="text-sm font-medium text-slate-600">Phase:</label>
-            <select id="scenarios-phase" class="filter-select" x-model="scenariosPhase" aria-label="Filter scenarios by phase">
+            <select id="scenarios-phase" class="filter-select max-w-full min-w-0" x-model="scenariosPhase" aria-label="Filter scenarios by phase">
               <option value="">All phases</option>
               <template x-for="ph in [...phases].sort((a,b) => a.order - b.order)" :key="ph.id">
                 <option :value="ph.id" x-text="ph.name || ph.id"></option>
@@ -3424,7 +3444,8 @@
     role="dialog" aria-modal="true" aria-labelledby="account-title"
     @keydown.escape.window="accountOpen = false">
     <div class="absolute inset-0 bg-black/50" @click="accountOpen = false"></div>
-    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col">
+    <div x-ref="accountPanel" @keydown.tab="trapFocus($event, $refs.accountPanel)"
+         class="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col">
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
         <div>
           <h2 id="account-title" class="text-base font-semibold text-slate-900" x-text="auth.displayName || auth.username || 'Account'"></h2>
@@ -3433,7 +3454,7 @@
             <span x-show="!auth.enabled"> · authentication disabled</span>
           </p>
         </div>
-        <button x-ref="accountClose" @click="accountOpen = false" class="p-2 text-slate-400 hover:text-slate-600 transition-colors" aria-label="Close">
+        <button x-ref="accountClose" @click="accountOpen = false" class="min-w-[44px] min-h-[44px] inline-flex items-center justify-center p-2 text-slate-400 hover:text-slate-600 transition-colors" aria-label="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -3447,15 +3468,58 @@
             <template x-for="r in auth.roles" :key="r">
               <span class="chip" :class="roleClass(r)" x-text="r"></span>
             </template>
-            <span x-show="auth.roles.length === 0" class="text-sm text-slate-400 italic">No role assigned.</span>
+            <span x-show="auth.roles.length === 0" class="text-sm text-slate-500 italic">No role assigned.</span>
           </div>
-          <div class="flex flex-wrap gap-1">
-            <template x-for="p in auth.permissions" :key="p">
-              <span class="chip chip-slate font-mono text-[10px]" x-text="p"></span>
-            </template>
+          <!-- Permissions: collapsed to a count; expanded, grouped by the catalogue.
+               Local state, reset whenever the dialog opens. -->
+          <div x-data="{ permsOpen: false, groupsOpen: false }"
+               x-effect="if (accountOpen) { permsOpen = false; groupsOpen = false }">
+            <div x-show="auth.permissions.length" x-cloak class="flex items-center gap-2 text-xs text-slate-500">
+              <span x-text="auth.permissions.length + (auth.permissions.length === 1 ? ' permission' : ' permissions')"></span>
+              <button type="button" @click="permsOpen = !permsOpen"
+                      class="inline-flex items-center min-h-[44px] sm:min-h-[32px] px-1 text-indigo-600 hover:text-indigo-800 font-medium"
+                      :aria-expanded="permsOpen ? 'true' : 'false'" aria-controls="account-permissions"
+                      :aria-label="permsOpen ? 'Hide permissions' : 'Show permissions'"
+                      x-text="permsOpen ? 'Hide' : 'Show'"></button>
+            </div>
+            <div id="account-permissions" x-show="permsOpen" x-cloak class="mt-2">
+              <!-- Catalogue loaded: grouped, readable labels, raw id on hover -->
+              <template x-if="permissionCatalogue.length">
+                <div class="space-y-2">
+                  <template x-for="g in groupedPermissions(auth.permissions)" :key="g.id">
+                    <div>
+                      <p class="text-[11px] font-medium text-slate-500 mb-1" x-text="g.label"></p>
+                      <div class="flex flex-wrap gap-1">
+                        <template x-for="p in g.items" :key="p.id">
+                          <span class="chip chip-slate text-[10px]" :title="p.id" x-text="p.label"></span>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <!-- Catalogue not loaded: flat list of raw ids -->
+              <template x-if="!permissionCatalogue.length">
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="p in auth.permissions" :key="p">
+                    <span class="chip chip-slate font-mono text-[10px]" x-text="p"></span>
+                  </template>
+                </div>
+              </template>
+            </div>
+
+            <!-- Directory groups (short names only, see accountGroupNames):
+                 first 3 inline, the rest behind "+N more". Joined with ' · '
+                 because names may contain commas. -->
+            <p x-show="accountGroupNames().length" x-cloak class="mt-2 text-xs text-slate-500">
+              <span x-text="'Directory groups: ' + ((groupsOpen || accountGroupNames().length <= 3) ? accountGroupNames() : accountGroupNames().slice(0, 3)).join(' · ')"></span>
+              <button type="button" x-show="accountGroupNames().length > 3"
+                      @click="groupsOpen = !groupsOpen"
+                      class="ml-1 inline-flex items-center min-h-[44px] sm:min-h-[32px] px-1 text-indigo-600 hover:text-indigo-800 font-medium"
+                      :aria-expanded="groupsOpen ? 'true' : 'false'"><span
+                      x-text="groupsOpen ? 'Show fewer' : '+' + (accountGroupNames().length - 3) + ' more'"></span><span class="sr-only"> directory groups</span></button>
+            </p>
           </div>
-          <p x-show="auth.groups.length" x-cloak class="mt-2 text-xs text-slate-400"
-             x-text="'Directory groups: ' + auth.groups.join(', ')"></p>
         </div>
 
         <!-- Second factor -->

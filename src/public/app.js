@@ -305,6 +305,9 @@ document.addEventListener('alpine:init', function () {
       projectRoles: [],
       permissionCatalogue: [],
       permissionGroups: [],
+      // Tab bar overflow: whether there are clipped tabs to either side.
+      tabOverflowLeft: false,
+      tabOverflowRight: false,
       canEditSharedRoles: false,
       canEditProjectRoles: false,
       rolesLoading: false,
@@ -320,6 +323,7 @@ document.addEventListener('alpine:init', function () {
       // =========================================================================
 
       async init() {
+        this._wireAccountDialogFocus();
         // Who am I, and does this server even require a login? Everything else
         // waits on the answer: loading project data first would just produce a
         // screenful of 401s on a secured instance.
@@ -733,7 +737,77 @@ document.addEventListener('alpine:init', function () {
         this.mintedCopied = false;
         this.tokenError = '';
         this.twofaError = '';
-        await Promise.all([this.loadTokens(), this.loadTwoFactor()]);
+        await Promise.all([this.loadTokens(), this.loadTwoFactor(), this.loadPermissionCatalogue()]);
+      },
+
+      /**
+       * The shared permission catalogue, for grouping the account dialog's
+       * permission chips. Only fetched when not already loaded, and touches
+       * nothing but the catalogue: on failure the dialog keeps its flat list.
+       */
+      async loadPermissionCatalogue() {
+        if (this.permissionCatalogue.length > 0) return;
+        try {
+          var shared = await this._fetch('/api/roles');
+          if (shared && Array.isArray(shared.permissions)) {
+            this.permissionCatalogue = shared.permissions;
+            this.permissionGroups = shared.permissionGroups || [];
+          }
+        } catch (_) { /* flat fallback stays */ }
+      },
+
+      /**
+       * Focus for the (aria-modal) account dialog, whichever path opens it
+       * (openAccount, or the 2FA enrolment showing recovery codes): on open,
+       * move focus to its Close button; on close (button, backdrop, Escape),
+       * hand focus back to whatever had it before.
+       */
+      _wireAccountDialogFocus() {
+        // init() runs twice (Alpine calls it, and so does the body's x-init):
+        // wire the watcher once.
+        if (this._accountFocusWired) return;
+        this._accountFocusWired = true;
+        var self = this;
+        var opener = null;
+        this.$watch('accountOpen', function (open) {
+          if (open) {
+            opener = document.activeElement;
+            // x-show may not have revealed the dialog yet on the first tick:
+            // retry for a few frames until the Close button takes focus.
+            var tries = 0;
+            var focusClose = function () {
+              var el = self.$refs.accountClose;
+              if (!el || !self.accountOpen) return;
+              el.focus();
+              if (document.activeElement !== el && ++tries < 10) requestAnimationFrame(focusClose);
+            };
+            self.$nextTick(focusClose);
+          } else {
+            var back = opener;
+            opener = null;
+            if (back && back !== document.body && document.contains(back) && typeof back.focus === 'function') {
+              self.$nextTick(function () { back.focus(); });
+            }
+          }
+        });
+      },
+
+      /** Keep Tab / Shift+Tab inside the dialog panel (no focus-trap library). */
+      trapFocus(e, panel) {
+        if (!panel) return;
+        var nodes = panel.querySelectorAll('a[href], button, input, select, textarea, [tabindex]');
+        var focusable = Array.prototype.filter.call(nodes, function (el) {
+          return !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0;
+        });
+        if (!focusable.length) { e.preventDefault(); return; }
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        var active = document.activeElement;
+        if (e.shiftKey && (active === first || !panel.contains(active))) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+          e.preventDefault(); first.focus();
+        }
       },
 
       async loadTokens() {
@@ -1093,6 +1167,56 @@ document.addEventListener('alpine:init', function () {
 
       permissionsInGroup(groupId) {
         return this.permissionCatalogue.filter(function (p) { return p.group === groupId; });
+      },
+
+      /**
+       * The given permission ids sorted into the catalogue's groups, for the
+       * account dialog. Returns [{ id, label, items: [{ id, label }] }], leaving
+       * out empty groups; ids that have no catalogue entry, or whose group is
+       * unknown, go into a final "Other" group. Pure: reads the loaded
+       * catalogue and fetches nothing.
+       */
+      /**
+       * Directory groups for display in the account dialog. The LDAP provider
+       * puts both the full DN and the short name of every group into
+       * auth.groups (both are used for role mapping), so show each DN (any
+       * entry containing '=') as its first RDN value and de-duplicate. Falls
+       * back to the raw list if that would leave nothing. Pure.
+       */
+      accountGroupNames() {
+        var raw = (this.auth && this.auth.groups) || [];
+        // A DN stands for its first RDN value (CN=Team-1,OU=… → Team-1), which
+        // is usually its short-name twin and so collapses in the de-duplication.
+        var names = raw.map(function (g) {
+          g = String(g);
+          if (g.indexOf('=') === -1) return g;
+          var m = /^[^=]+=([^,]+)/.exec(g);
+          return m ? m[1].trim() : '';
+        }).filter(function (g, i, all) { return g && all.indexOf(g) === i; });
+        return names.length ? names : raw;
+      },
+
+      groupedPermissions(ids) {
+        ids = (ids || []).filter(function (id, i, all) { return all.indexOf(id) === i; });
+        var catalogue = this.permissionCatalogue || [];
+        var groups = (this.permissionGroups || []).map(function (g) {
+          return { id: g.id, label: g.label, items: [] };
+        });
+        var other = { id: '_other', label: 'Other', items: [] };
+        (ids || []).forEach(function (id) {
+          var entry = null;
+          for (var i = 0; i < catalogue.length; i++) {
+            if (catalogue[i].id === id) { entry = catalogue[i]; break; }
+          }
+          var target = other;
+          if (entry) {
+            for (var j = 0; j < groups.length; j++) {
+              if (groups[j].id === entry.group) { target = groups[j]; break; }
+            }
+          }
+          target.items.push({ id: id, label: entry && entry.label ? entry.label : id });
+        });
+        return groups.concat([other]).filter(function (g) { return g.items.length > 0; });
       },
 
       /**
@@ -2135,8 +2259,91 @@ document.addEventListener('alpine:init', function () {
         var self = this;
         this.$nextTick(function () {
           var el = document.querySelector('[role="tab"][aria-selected="true"]');
-          if (el) el.focus();
+          if (el) {
+            el.focus({ preventScroll: true });
+            el.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: self._tabScrollBehavior() });
+          }
         });
+      },
+
+      // ── Tab bar horizontal scrolling ────────────────────────────────────────
+      // The tab row scrolls at every width (scrollbar hidden); ‹ › buttons and
+      // edge fades appear only while tabs are clipped on that side.
+
+      /** Wire the tab scroller: called once from the nav's x-init. */
+      initTabScroller() {
+        var self = this;
+        // x-init runs before the nav's children are initialised, so the
+        // x-ref below is only registered on the next tick.
+        this.$nextTick(function () { self._wireTabScroller(); });
+      },
+
+      _wireTabScroller() {
+        var self = this;
+        var scroller = this.$refs.tabScroller;
+        if (!scroller) return;
+        var list = scroller.querySelector('[role="tablist"]');
+        // A layout shift (window resize, a vertical scrollbar appearing, the
+        // web font swapping in, text zoom) moves the edges: recompute the
+        // arrows and keep the selected tab clear of them — instantly, since
+        // the user did not ask for a scroll.
+        var update = function () { self.updateTabOverflow(); self.revealActiveTab('auto'); };
+        window.addEventListener('resize', update);
+        if (window.ResizeObserver) {
+          // Also fires when the nav goes from hidden to visible (width 0 → >0).
+          var ro = new ResizeObserver(update);
+          ro.observe(scroller);
+          if (list) ro.observe(list);
+        }
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(update);
+        // Tabs come and go (All Projects, Audit, Access after sign-in).
+        if (list && window.MutationObserver) {
+          new MutationObserver(function () {
+            self.$nextTick(function () { self.updateTabOverflow(); self.revealActiveTab(); });
+          }).observe(list, { childList: true });
+        }
+        // Whatever changes the tab (click, keys, deep link, Back/Forward),
+        // bring the selected one into view.
+        this.$watch('tab', function () { self.revealActiveTab(); });
+        // First reveal on load: jump, don't animate.
+        this.$nextTick(function () { self.updateTabOverflow(); self.revealActiveTab('auto'); });
+      },
+
+      updateTabOverflow() {
+        var el = this.$refs.tabScroller;
+        if (!el) return;
+        this.tabOverflowLeft = el.scrollLeft > 1;
+        this.tabOverflowRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      },
+
+      /**
+       * Scroll the tab row by ~70% of its visible width; dir is -1 or 1. On a
+       * narrow row the step shrinks so that it never exceeds the space between
+       * the two 44px arrows minus the widest tab, so every tab is shown fully
+       * clear of the arrows at some step rather than straddling them.
+       */
+      scrollTabs(dir) {
+        var el = this.$refs.tabScroller;
+        if (!el) return;
+        var widest = 0;
+        el.querySelectorAll('[role="tab"]').forEach(function (t) { widest = Math.max(widest, t.offsetWidth); });
+        var step = Math.max(80, Math.min(el.clientWidth * 0.7, el.clientWidth - 88 - widest));
+        el.scrollBy({ left: dir * Math.round(step), behavior: this._tabScrollBehavior() });
+      },
+
+      /** behavior: optional 'auto' to jump (layout changes, first load). */
+      revealActiveTab(behavior) {
+        var self = this;
+        this.$nextTick(function () {
+          var el = self.$refs.tabScroller && self.$refs.tabScroller.querySelector('[role="tab"][aria-selected="true"]');
+          if (el) el.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: behavior || self._tabScrollBehavior() });
+        });
+      },
+
+      _tabScrollBehavior() {
+        try {
+          return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        } catch (_) { return 'auto'; }
       },
 
       /**

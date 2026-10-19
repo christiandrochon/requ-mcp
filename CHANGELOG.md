@@ -4,6 +4,19 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+## [2.3.2] – 2026-10-19
+
+### Fixed
+- The header stays usable at every width: the account button and sign-out are
+  always visible, the controls are large enough to tap, and long phase names
+  truncate. The version selector is visible on small screens.
+- The tab menu can be reached at every width: it scrolls, with ‹ › buttons when
+  tabs are clipped, and the active tab is kept in view.
+- The account dialog: permissions are collapsed and grouped, directory groups
+  show short names with "+N more", and keyboard focus is managed (moved in,
+  trapped, restored).
+- The phase filters no longer make the page scroll sideways on phones.
+
 ## [2.3.1] – 2026-10-14
 
 ### Fixed
