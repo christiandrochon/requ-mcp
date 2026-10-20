@@ -177,6 +177,8 @@ document.addEventListener('alpine:init', function () {
 
       // ── SSE handle ───────────────────────────────────────────────────────────
       _sse: null,
+      /** The URL _sse was opened on, i.e. the scope of what it pushes. */
+      _sseUrl: '',
 
       // ── Multi-project ─────────────────────────────────────────────────────────────
       projects: [],
@@ -1459,6 +1461,10 @@ document.addEventListener('alpine:init', function () {
       async switchVersion(version) {
         if (!version || version === this.activeVersion) return;
         this.activeVersion = version;
+        // The live stream is scoped like every read (apiUrl): re-open it on the
+        // picked baseline, or each tick compares another version's summary with
+        // this one and re-fetches every list.
+        this._reconnectSSE();
         await Promise.all([
           this.loadConfig(),
           this.loadSummary(),
@@ -1563,15 +1569,15 @@ document.addEventListener('alpine:init', function () {
         // And for Traceability: drop the old chain so its watchers stay quiet
         // until loadSummary() has seeded tracePhase for the new project.
         this._traceReset();
-        // Reconnect SSE for the new project.
-        if (this._sse) { this._sse.close(); this._sse = null; }
-        this.setupSSE();
         // Load config + summary first so that coveragePhase is set to the new
         // project's activePhase before loadCoverage() reads it.
         this.activeVersion = '';
         this.versions = [];
         this.diff = null;
         await this.loadVersions();
+        // Reconnect SSE for the new project, once its baseline is known: opened
+        // earlier, the stream would carry the previous project's ?version=.
+        this._reconnectSSE();
         await Promise.all([self.loadConfig(), self.loadSummary()]);
         // Now load the remaining data in parallel using the correct coveragePhase.
         await Promise.all([
@@ -1781,26 +1787,34 @@ document.addEventListener('alpine:init', function () {
       // SSE
       // =========================================================================
 
+      /** Re-open the live stream on the current project and baseline. */
+      _reconnectSSE() {
+        if (this._sse) { this._sse.close(); this._sse = null; }
+        this.setupSSE();
+      },
+
       setupSSE() {
         if (this._sse) return;
         var self = this;
         try {
-          var es = new EventSource(this.apiUrl('/events'));
+          var url = this.apiUrl('/events');
+          var es = new EventSource(url);
+          this._sseUrl = url;
           es.onmessage = function (e) {
             try {
+              // A stream scoped otherwise than the panels' reads (the baseline
+              // or the version list changed since it opened) would make every
+              // tick look like a change and re-fetch every list: re-open it.
+              // This tick is dropped on purpose: it describes the old scope,
+              // and the re-opened stream sends the right summary at once.
+              if (self.apiUrl('/events') !== self._sseUrl) { self._reconnectSSE(); return; }
               var d = JSON.parse(e.data);
               if (d && typeof d === 'object') {
                 var prev = self.summary;
-                // The event stream is not version-scoped, so it always describes
-                // the project's current version. Adopting it while another
-                // baseline is selected would make the header contradict the tab
-                // below it; re-read the scoped summary instead.
-                if (self.activeVersion &&
-                    self.activeVersion !== self.versionMeta.currentVersion) {
-                  self.loadSummary();
-                } else {
-                  self.summary = d;
-                }
+                // The stream is opened through apiUrl(), so it describes the
+                // project and baseline in view (_reconnectSSE re-opens it when
+                // either changes) and can be adopted as is.
+                self.summary = d;
                 self.notInitialized = false;
                 if (self.tab === 'global') { self.loadGlobalSummary(); }
                 // A list is re-fetched when its content changed, not only its

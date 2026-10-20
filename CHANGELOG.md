@@ -4,6 +4,17 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+## [2.3.3] – 2026-10-20
+
+### Fixed
+- The Requirements and Overview views no longer refresh every 5 seconds after
+  switching version or project. The live-update stream now follows the version
+  and project in view, so only real changes reload a list.
+
+### Added
+- `smoke:sse` regression test: the live-update stream stays scoped like the
+  dashboard's reads, and an unchanged project triggers no re-fetch.
+
 ## [2.3.2] – 2026-10-19
 
 ### Fixed
