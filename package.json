@@ -24,6 +24,7 @@
     "smoke:adrs": "tsx scripts/smoke-adrs.ts",
     "smoke:search": "tsx scripts/smoke-search.ts",
     "smoke:versions": "tsx scripts/smoke-versions.ts",
+    "smoke:i18n": "tsx scripts/smoke-gherkin-i18n.ts",
     "smoke:delete": "tsx scripts/smoke-delete.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",
     "smoke:traceability": "tsx scripts/smoke-traceability.ts",

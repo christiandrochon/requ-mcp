@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { storiesFromTags, testKey } from "./schema.js";
+import { declaredLanguage, keywordsFor, matchKeyword } from "./gherkin-lang.js";
 
 /**
  * Reads the Conductor project's feature files directly off disk — no runtime
@@ -80,7 +81,12 @@ function sliceContent(rawLines: string[], start: number, end: number): string {
  * Lightweight gherkin scan: pull the Feature name, each Scenario name, the tags
  * attached to each (tag lines immediately above the Scenario, plus feature-level
  * tags above the `Feature:` line), and the raw text span of each scenario block
- * so it can be stored as content.
+ * so it can be stored as content. Keywords follow the `# language: xx` header
+ * (dialects from @cucumber/gherkin); English is the default.
+ *
+ * @param content raw text of the .feature file
+ * @param file path used for the default feature name and scenario origin
+ * @returns one entry per Scenario / Scenario Outline found
  */
 function parseFeatureFile(content: string, file: string): ConductorScenario[] {
   let feature = path.basename(file, ".feature");
@@ -91,6 +97,8 @@ function parseFeatureFile(content: string, file: string): ConductorScenario[] {
   let bgStart = -1;          // Index where the current Background: block begins.
   const rawLines = content.split(/\r?\n/);
   const partials: PartialScenario[] = [];
+  // Keywords of the language declared by `# language: xx` (English by default).
+  const kw = keywordsFor(declaredLanguage(content), true);
 
   for (let i = 0; i < rawLines.length; i++) {
     const line = rawLines[i].trim();
@@ -101,27 +109,27 @@ function parseFeatureFile(content: string, file: string): ConductorScenario[] {
       pendingTags.push(...parseTags(line));
       continue;
     }
-    const fm = line.match(/^Feature:\s*(.+)$/);
-    if (fm) {
-      feature = fm[1].trim();
+    const fname = matchKeyword(line, kw.feature);
+    if (fname !== null) {
+      if (fname) feature = fname;
       featureTags = pendingTags;
       pendingTags = [];
       background = "";
       bgStart = -1;
       continue;
     }
-    if (/^Background:/.test(line)) {
+    if (matchKeyword(line, kw.background) !== null) {
       bgStart = i;             // capture from the Background: line itself
       pendingTags = [];
       continue;
     }
-    const sm = line.match(/^Scenario(?:\s+Outline)?:\s*(.+)$/);
-    if (sm) {
+    const sname = matchKeyword(line, kw.scenario);
+    if (sname) {
       const tags = [...featureTags, ...pendingTags];
       const startIdx = pendingTags.length ? pendingTagsStart : i;
       // Finalize an open Background block at this scenario's boundary.
       if (bgStart >= 0) { background = sliceContent(rawLines, bgStart, startIdx); bgStart = -1; }
-      partials.push({ feature, name: sm[1].trim(), file, tags, stories: storiesFromTags(tags), startIdx, background });
+      partials.push({ feature, name: sname, file, tags, stories: storiesFromTags(tags), startIdx, background });
       pendingTags = [];
       continue;
     }
