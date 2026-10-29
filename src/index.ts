@@ -84,6 +84,7 @@ import {
   staleScreens,
 } from "./screen-coverage.js";
 import { parseCucumberJson } from "./ingest.js";
+import { matchElements, buildExecutions } from "./outline-match.js";
 import { buildExport, applyImport } from "./export-import.js";
 import { audit, flushChanges, recordingStore } from "./audit.js";
 import { authConfig } from "./auth/config.js";
@@ -737,16 +738,28 @@ async function unreadablePath(p: string, what: string) {
   }
 }
 
-/** testKeys of scenarios linked to a story: stored scenarios win, else disk tags. */
-async function linkedKeysForStore(store: AnyStore): Promise<Set<string>> {
+/**
+ * All known scenarios (for report matching) and the testKeys linked to a story.
+ * Stored scenarios win; else the disk-indexed Conductor features.
+ */
+async function knownScenariosForStore(
+  store: AnyStore,
+): Promise<{ all: { feature: string; name: string; tags: string[] }[]; linked: Set<string> }> {
   const stored = await store.listScenarios();
   if (stored.length > 0) {
-    return new Set(stored.filter((s) => s.stories.length > 0).map((s) => s.testKey));
+    return {
+      all: stored.map((s) => ({ feature: s.feature, name: s.name, tags: s.tags })),
+      linked: new Set(stored.filter((s) => s.stories.length > 0).map((s) => s.testKey)),
+    };
   }
   try {
-    return linkedScenarioKeys(await indexConductor(await store.conductorRoot()));
+    const index = await indexConductor(await store.conductorRoot());
+    return {
+      all: index.scenarios.map((s) => ({ feature: s.feature, name: s.name, tags: s.tags })),
+      linked: linkedScenarioKeys(index),
+    };
   } catch {
-    return new Set();
+    return { all: [], linked: new Set() };
   }
 }
 
@@ -3075,27 +3088,28 @@ tool(
     if (!(await store.getPhase(phaseId))) return fail(`Phase ${phaseId} not found.`);
 
     const ranAt = now();
-    const execs: Execution[] = scenarios.map((s) => ({
-      feature: s.feature,
-      name:    s.name,
-      status:  s.status,
-      ranAt,
-      runId: args.runId,
-      source: "cucumber-json",
-    }));
+    // Examples of a Scenario Outline are resolved to their stored outline and
+    // folded into one execution per scenario (see outline-match.ts).
+    const known = await knownScenariosForStore(store);
+    const matches = matchElements(scenarios, known.all);
+    const execs: Execution[] = buildExecutions(matches, { ranAt, runId: args.runId, source: "cucumber-json" });
     await store.appendExecutions(phaseId, execs);
 
-    const linked = await linkedKeysForStore(store);
+    const linked = known.linked;
     const matched = execs.filter((e) => linked.has(testKey(e)));
     const counts = {
       pass:    execs.filter((e) => e.status === "pass").length,
       fail:    execs.filter((e) => e.status === "fail").length,
       pending: execs.filter((e) => e.status === "pending").length,
     };
+    const elementsLinked = matches.filter((m) => m.target && linked.has(testKey(m.target))).length;
     return json({
       phase: phaseId,
       file,
       scenariosParsed: execs.length,
+      reportElements: scenarios.length,
+      elementsLinkedToAStory: elementsLinked,
+      outlineExamplesFolded: matches.filter((m) => m.how === "outline-name" || m.how === "outline-tags").length,
       counts,
       taggedToAStory: matched.length,
       untaggedScenarios: execs

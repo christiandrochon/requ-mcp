@@ -16,6 +16,12 @@ export interface ParsedScenarioResult {
   status: TestStatus;
   /** Raw cucumber statuses seen, for debugging. */
   rawStatuses: string[];
+  /** Element tags (e.g. "@US-100"), feature-level tags included by cucumber-js. */
+  tags: string[];
+  /** Cucumber element id (slug), when present. */
+  id?: string;
+  /** Line of the example/scenario in the .feature file, when present. */
+  line?: number;
 }
 
 interface CucumberStep {
@@ -25,6 +31,9 @@ interface CucumberElement {
   name?: string;
   type?: string;
   keyword?: string;
+  id?: string;
+  line?: number;
+  tags?: { name?: string }[];
   steps?: CucumberStep[];
 }
 interface CucumberFeature {
@@ -71,6 +80,9 @@ export function parseCucumberJson(content: string): ParsedScenarioResult[] {
         name,
         status: deriveStatus(rawStatuses),
         rawStatuses,
+        tags: (el.tags ?? []).map((t) => t.name).filter((x): x is string => typeof x === "string"),
+        id: el.id,
+        line: el.line,
       });
     }
   }
