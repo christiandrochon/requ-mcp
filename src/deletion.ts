@@ -1,5 +1,5 @@
 /**
- * Deleting a phase or a requirement, with the rules for what points at them.
+ * Deleting a phase, a requirement or a user story, with the rules for what points at them.
  *
  * Shared by the MCP tools and the REST routes so both refuse and cascade the
  * same way. Every write goes through the store it is handed — callers pass the
@@ -26,17 +26,18 @@ export class InUseError extends Error {
 /** A delete aimed at a locked version. Raised before anything is written, so a
  *  cascade never half-applies. */
 export class LockedVersionError extends Error {
-  constructor(version: string) {
+  constructor(version: string, action = "deleted") {
     super(
-      `Version ${version} is locked: phases and requirements cannot be deleted from it. ` +
-        `Create the next version (create_version) and delete there.`,
+      `Version ${version} is locked: phases, requirements and user stories cannot be ${action} in it. ` +
+        `Create the next version (create_version) and make the change there.`,
     );
     this.name = "LockedVersionError";
   }
 }
 
-async function assertNotLocked(store: AnyStore): Promise<void> {
-  if (await store.isLocked()) throw new LockedVersionError(await store.version());
+/** Refuse a specification edit on a locked version (shared with story-lifecycle). */
+export async function assertNotLocked(store: AnyStore, action = "deleted"): Promise<void> {
+  if (await store.isLocked()) throw new LockedVersionError(await store.version(), action);
 }
 
 export interface PhaseDeletion {
@@ -129,5 +130,60 @@ export async function deleteRequirement(store: AnyStore, id: string): Promise<Re
   }
 
   result.deleted = await store.deleteRequirement(id);
+  return result;
+}
+
+export interface StoryDeletion {
+  deleted: boolean;
+  id: string;
+  /** Screens that linked the story and no longer do (the screens are kept). */
+  detachedScreens: string[];
+  /** Deprecated stories whose `replacedBy` pointed at the story and no longer do. */
+  detachedReplacedBy: string[];
+  /** Scenarios still tagged with the story id. They are kept: the tag lives in
+   *  the feature file, so it now shows up as a dangling tag in traceability. */
+  danglingScenarios: string[];
+}
+
+/**
+ * Delete a user story from the working (draft) version: the row becomes a
+ * tombstone, so a locked ancestor version still holds it and `diff_versions`
+ * reports it as removed. Refused on a locked version, before anything is written.
+ *
+ * What pointed at the story: screen links are dropped (screens kept);
+ * `replacedBy` references on other stories are dropped; scenarios tagged with
+ * the id are left untouched and reported as dangling; acceptance criteria go
+ * with the story. Not blocked by those references: unlike a requirement, a story
+ * is a leaf of the trace chain. Every write goes through the recording store, so
+ * each unlink lands in the change history next to the delete.
+ *
+ * @param store the (recording) store of the working version
+ * @param id story id, e.g. "US-012"
+ * @returns what was deleted and what was unlinked; `deleted:false` if unknown
+ * @throws LockedVersionError when the version is locked
+ */
+export async function deleteStory(store: AnyStore, id: string): Promise<StoryDeletion> {
+  const result: StoryDeletion = { deleted: false, id, detachedScreens: [], detachedReplacedBy: [], danglingScenarios: [] };
+  if (!(await store.getStory(id))) return result;
+  await assertNotLocked(store);
+
+  const stamp = new Date().toISOString();
+  for (const sc of await store.listScreens()) {
+    if (!sc.stories.some((l) => l.id === id)) continue;
+    const storyVersions = { ...sc.storyVersions };
+    delete storyVersions[id];
+    await store.writeScreen({ ...sc, stories: sc.stories.filter((l) => l.id !== id), storyVersions, updatedAt: stamp });
+    result.detachedScreens.push(sc.id);
+  }
+  for (const s of await store.listStories()) {
+    if (s.id === id || !s.replacedBy.includes(id)) continue;
+    await store.writeStory({ ...s, replacedBy: s.replacedBy.filter((r) => r !== id), updatedAt: stamp });
+    result.detachedReplacedBy.push(s.id);
+  }
+  for (const sc of await store.listScenarios()) {
+    if (sc.stories.includes(id)) result.danglingScenarios.push(sc.testKey);
+  }
+
+  result.deleted = await store.deleteStory(id);
   return result;
 }

@@ -1055,6 +1055,12 @@
       ══════════════════════════════════════════════════════════ -->
       <div id="panel-stories" role="tabpanel" aria-labelledby="tab-stories" tabindex="0" x-show="tab === 'stories'" class="tab-panel space-y-4">
 
+        <div x-show="storyError" x-cloak role="alert"
+             class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex flex-wrap items-center gap-2">
+          <span x-text="storyError"></span>
+          <button class="ml-auto text-amber-700 hover:underline" @click="storyError = ''">Dismiss</button>
+        </div>
+
         <!-- Filters -->
         <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-center gap-3">
           <div class="relative">
@@ -1065,6 +1071,13 @@
             <template x-for="opt in [{v:'all',l:'All'},{v:'draft',l:'Draft'},{v:'ready',l:'Ready'},{v:'in_progress',l:'In Progress'},{v:'done',l:'Done'}]" :key="opt.v">
               <button class="filter-pill text-xs" :class="storyStatusFilter === opt.v ? 'active' : ''"
                 @click="storyStatusFilter = opt.v" x-text="opt.l"></button>
+            </template>
+          </div>
+          <!-- Lifecycle: deprecated stories are kept but no longer count in gaps/coverage -->
+          <div class="flex gap-1 flex-wrap" role="group" aria-label="Filter by lifecycle">
+            <template x-for="opt in [{v:'all',l:'All'},{v:'active',l:'Active'},{v:'deprecated',l:'Deprecated'}]" :key="opt.v">
+              <button class="filter-pill text-xs" :class="storyLifecycleFilter === opt.v ? 'active' : ''"
+                @click="storyLifecycleFilter = opt.v" x-text="opt.l"></button>
             </template>
           </div>
           <!-- Phase -->
@@ -1113,9 +1126,22 @@
                 </thead>
                 <template x-for="story in filteredStories()" :key="story.id">
                   <tbody>
-                    <tr @click="toggleStory(story.id)" :class="storyExpanded === story.id ? 'expanded' : ''">
+                    <tr @click="toggleStory(story.id)" :class="(storyExpanded === story.id ? 'expanded ' : '') + (story.lifecycle === 'deprecated' ? 'opacity-60' : '')">
                       <td><code class="chip chip-indigo" x-text="story.id"></code></td>
-                      <td class="font-medium text-slate-800" x-text="story.title"></td>
+                      <td class="font-medium text-slate-800">
+                        <span :class="story.lifecycle === 'deprecated' ? 'line-through text-slate-500' : ''" x-text="story.title"></span>
+                        <template x-if="story.lifecycle === 'deprecated'">
+                          <span class="ml-2 inline-flex flex-wrap items-center gap-1 align-middle">
+                            <span class="badge chip-amber">Deprecated</span>
+                            <template x-if="(story.replacedBy || []).length">
+                              <span class="text-xs text-slate-500">→ replaced by</span>
+                            </template>
+                            <template x-for="rid in (story.replacedBy || [])" :key="rid">
+                              <button class="chip chip-indigo" @click.stop="openStoryById(rid)" x-text="rid"></button>
+                            </template>
+                          </span>
+                        </template>
+                      </td>
                       <td>
                         <span class="badge" :class="storyStatusBadge(story.status)"
                           x-text="story.status ? story.status.replace('_', ' ') : '—'"></span>
@@ -1166,6 +1192,16 @@
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
                             Allure
                           </button>
+                          <button x-show="can('story:write') && !viewedVersionLocked() && story.lifecycle !== 'deprecated'" x-cloak
+                            @click.stop="deprecateStoryItem(story)"
+                            class="btn-secondary text-xs" :aria-label="'Deprecate ' + story.id"
+                            title="Keep the story but stop counting it in gaps and coverage">Deprecate</button>
+                          <button x-show="can('story:write') && !viewedVersionLocked() && story.lifecycle === 'deprecated'" x-cloak
+                            @click.stop="restoreStoryItem(story)"
+                            class="btn-secondary text-xs" :aria-label="'Restore ' + story.id">Restore</button>
+                          <button x-show="can('story:write') && !viewedVersionLocked()" x-cloak
+                            @click.stop="deleteStoryItem(story)"
+                            class="btn-secondary text-xs text-red-700 hover:bg-red-50" :aria-label="'Delete ' + story.id">Delete</button>
                         </div>
                       </td>
                     </tr>

@@ -99,7 +99,8 @@ import { authenticateRequest, clientIp, reauthorizeForProject } from "./auth/aut
 import { devPrincipal, ForbiddenError, requirePermission, UnauthorizedError } from "./auth/model.js";
 import { permissionForTool } from "./auth/rbac.js";
 import { authStore } from "./auth/store.js";
-import { deletePhase, deleteRequirement, InUseError } from "./deletion.js";
+import { deletePhase, deleteRequirement, deleteStory, InUseError } from "./deletion.js";
+import { deprecateStory, restoreStory, StoryLifecycleError } from "./story-lifecycle.js";
 import { ensureSeeded, warnUnknownConfiguredRoles } from "./auth/role-catalogue.js";
 
 const now = () => new Date().toISOString();
@@ -1442,6 +1443,8 @@ tool(
       requirements: args.requirements,
       acceptanceCriteria,
       status: "draft",
+      lifecycle: "active",
+      replacedBy: [],
       platforms: args.platforms ?? [],
       dataFields: args.dataFields ?? [],
       removed: false,
@@ -1463,11 +1466,13 @@ tool(
       status: StoryStatus.optional(),
       requirement: z.string().regex(/^REQ-\d+$/).optional(),
       phase: z.string().optional().describe("Filter by target phase, derived from the story's requirements: matches if any linked requirement is assigned to this phase."),
+      lifecycle: z.enum(["active", "deprecated", "all"]).optional().describe("Include deprecated stories? 'all' (default) lists both, 'active' hides deprecated ones, 'deprecated' lists only those."),
     },
   },
   async (args, store) => {
     await ensureInit(store);
     let stories = await store.listStories();
+    if (args.lifecycle && args.lifecycle !== "all") stories = stories.filter((s) => s.lifecycle === args.lifecycle);
     if (args.status) stories = stories.filter((s) => s.status === args.status);
     if (args.requirement) stories = stories.filter((s) => s.requirements.includes(args.requirement));
     if (args.phase) {
@@ -1491,12 +1496,14 @@ tool(
       status:      StoryStatus.optional(),
       requirement: z.string().regex(/^REQ-\d+$/).optional(),
       phase:       z.string().optional().describe("Filter by target phase, derived from the story's requirements: matches if any linked requirement is assigned to this phase."),
+      lifecycle: z.enum(["active", "deprecated", "all"]).optional().describe("Include deprecated stories? 'all' (default) lists both, 'active' hides deprecated ones, 'deprecated' lists only those."),
     },
   },
   async (args, store) => {
     await ensureInit(store);
     const q = args.query.toLowerCase();
     let stories = await store.listStories();
+    if (args.lifecycle && args.lifecycle !== "all") stories = stories.filter((s) => s.lifecycle === args.lifecycle);
     if (args.status)      stories = stories.filter((s) => s.status === args.status);
     if (args.requirement) stories = stories.filter((s) => s.requirements.includes(args.requirement));
     if (args.phase) {
@@ -1592,6 +1599,65 @@ tool(
   },
   "spec",
   "stories",
+);
+
+tool(
+  "deprecate_user_story",
+  {
+    title: "Deprecate user story",
+    description:
+      "Mark a story obsolete in the working version. It is kept and stays readable (list_user_stories lifecycle filter), but no longer appears in find_gaps or coverage. Optionally name the stories that replace it (validated: they must exist and differ from this story). Workflow status is untouched. Reversible with restore_user_story. Refused on a locked version.",
+    inputSchema: {
+      id: z.string().regex(/^US-\d+$/),
+      replacedBy: z.array(z.string().regex(/^US-\d+$/)).optional().describe("Ids of the stories that supersede this one."),
+    },
+  },
+  async (args, store) => {
+    await ensureInit(store);
+    try {
+      return json(await deprecateStory(store, args.id, args.replacedBy ?? []));
+    } catch (e) {
+      if (e instanceof StoryLifecycleError) return fail(e.message, { code: e.code });
+      throw e;
+    }
+  },
+  "spec",
+);
+
+tool(
+  "restore_user_story",
+  {
+    title: "Restore deprecated user story",
+    description: "Bring a deprecated story back into gaps and coverage; clears replacedBy and keeps its workflow status. Refused on a locked version.",
+    inputSchema: { id: z.string().regex(/^US-\d+$/) },
+  },
+  async (args, store) => {
+    await ensureInit(store);
+    try {
+      return json(await restoreStory(store, args.id));
+    } catch (e) {
+      if (e instanceof StoryLifecycleError) return fail(e.message, { code: e.code });
+      throw e;
+    }
+  },
+  "spec",
+);
+
+tool(
+  "delete_user_story",
+  {
+    title: "Delete user story",
+    description:
+      "Delete a story from the working (draft) version; a locked version keeps it and this is refused on a locked version. Screen links to the story and other stories' replacedBy references are dropped; scenarios tagged with the story id are kept and reported as dangling tags. Recorded in the audit log and the change history. To keep the story but stop counting it, use deprecate_user_story instead.",
+    inputSchema: { id: z.string().regex(/^US-\d+$/) },
+  },
+  async (args, store) => {
+    await ensureInit(store);
+    const result = await deleteStory(store, args.id);
+    if (!result.deleted) return fail(`Story ${args.id} not found.`);
+    return json(result);
+  },
+  "spec",
 );
 
 tool(

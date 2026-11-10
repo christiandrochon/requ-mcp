@@ -86,7 +86,12 @@ const IGNORED_FIELDS = new Set(["updatedAt"]);
  * this normalisation that gap reads as a change and would freeze rows in
  * migrated projects — including edits the freeze matrix explicitly permits.
  */
-const DEFAULTED_FIELDS: Record<string, unknown> = { removed: false };
+const DEFAULTED_FIELDS: Record<string, unknown> = {
+  removed: false,
+  // Story deprecation (ADR 0004): rows stored before these fields existed.
+  lifecycle: "active",
+  replacedBy: [],
+};
 
 function normalize(key: string, value: unknown): unknown {
   return value === undefined && key in DEFAULTED_FIELDS ? DEFAULTED_FIELDS[key] : value;
