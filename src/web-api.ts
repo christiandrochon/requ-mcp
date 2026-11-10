@@ -29,6 +29,7 @@ import {
   resolveScenariosByStory,
   filterScenarios,
   countsByPhase,
+  isActiveStory,
   requirementIdsForScenario,
   computeDeliveredCoverage,
   type ScenariosByStory,
@@ -46,7 +47,8 @@ import { newContext, runWithContext, type RequestContext } from "./auth/context.
 import { can, devPrincipal, type Permission, type Principal } from "./auth/model.js";
 import { isPublicRoute, permissionForRoute } from "./auth/rbac.js";
 import { handleAuthRoutes } from "./auth/routes.js";
-import { deletePhase, deleteRequirement, InUseError, LockedVersionError } from "./deletion.js";
+import { deletePhase, deleteRequirement, deleteStory, InUseError, LockedVersionError } from "./deletion.js";
+import { deprecateStory, restoreStory, StoryLifecycleError } from "./story-lifecycle.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -444,7 +446,9 @@ async function computeSummary(store: AnyHttpStore): Promise<Record<string, unkno
 
   return {
     requirements: requirements.length,
-    stories: stories.length,
+    // Deprecated stories are not work to cover: counted apart so the totals add up.
+    stories: stories.filter(isActiveStory).length,
+    storiesDeprecated: stories.filter((s) => !isActiveStory(s)).length,
     components: components.length,
     phases: phases.length,
     vcsRefs: vcsRefs.length,
@@ -1381,7 +1385,10 @@ async function routeWebRequest(
       const r = await resolveStore(stores, searchParams);
       if (!handleStoreResult(res, r)) return true;
       try {
-        jsonOk(res, await r.store.listStories());
+        // ?lifecycle=active|deprecated narrows the list; absent or "all" keeps every story.
+        const lifecycle = searchParams.get("lifecycle");
+        const all = await r.store.listStories();
+        jsonOk(res, lifecycle === "active" || lifecycle === "deprecated" ? all.filter((s) => s.lifecycle === lifecycle) : all);
       } catch (err) {
         internalError(res, err, req);
       }
@@ -1403,6 +1410,52 @@ async function routeWebRequest(
         }
         return true;
       }
+    }
+
+    // --- DELETE /api/stories/:id --- (draft only; tombstone, a locked version keeps it)
+    {
+      const params = matchRoute(pathname, method, "/api/stories/:id", "DELETE");
+      if (params !== null) {
+        const r = await resolveSpecStore(stores, searchParams);
+        if (!handleStoreResult(res, r)) return true;
+        try {
+          const result = await deleteStory(r.store, params.id);
+          if (!result.deleted) { jsonError(res, 404, `Story ${params.id} not found`, "NOT_FOUND"); return true; }
+          jsonOk(res, result);
+        } catch (err) { deletionError(res, err, req); }
+        return true;
+      }
+    }
+
+    // --- POST /api/stories/:id/deprecate --- body { replacedBy?: ["US-xxx"] }
+    // --- POST /api/stories/:id/restore
+    for (const action of ["deprecate", "restore"] as const) {
+      const params = matchRoute(pathname, method, `/api/stories/:id/${action}`, "POST");
+      if (params === null) continue;
+      const r = await resolveSpecStore(stores, searchParams);
+      if (!handleStoreResult(res, r)) return true;
+      try {
+        let replacedBy: string[] = [];
+        if (action === "deprecate") {
+          const body = (await parseJsonBody(req, res)) as { replacedBy?: unknown } | null;
+          if (body === null) return true;
+          const rb = body.replacedBy;
+          if (rb !== undefined && (!Array.isArray(rb) || rb.some((x) => typeof x !== "string"))) {
+            jsonError(res, 400, "replacedBy must be an array of story ids", "INVALID_REPLACEMENT");
+            return true;
+          }
+          replacedBy = (rb as string[] | undefined) ?? [];
+        }
+        const story = action === "deprecate"
+          ? await deprecateStory(r.store, params.id, replacedBy)
+          : await restoreStory(r.store, params.id);
+        jsonOk(res, story);
+      } catch (err) {
+        if (err instanceof StoryLifecycleError) {
+          jsonError(res, err.code === "NOT_FOUND" ? 404 : 400, err.message, err.code);
+        } else deletionError(res, err, req);
+      }
+      return true;
     }
 
     // --- GET /api/stories/:id/scenarios --- (batch, with gherkin content)

@@ -286,6 +286,15 @@ export type Screen = z.infer<typeof Screen>;
 export const StoryStatus = z.enum(["draft", "ready", "in_progress", "done"]);
 export type StoryStatus = z.infer<typeof StoryStatus>;
 
+/**
+ * Lifecycle of a story, orthogonal to its workflow `status` (same values as
+ * RequirementStatus). A deprecated story is kept and readable but excluded from
+ * gaps and coverage; keeping it apart from `status` means restoring it brings
+ * back the workflow state it had.
+ */
+export const StoryLifecycle = z.enum(["active", "deprecated"]);
+export type StoryLifecycle = z.infer<typeof StoryLifecycle>;
+
 export const UserStory = z.object({
   id: z.string().regex(/^US-\d+$/, "id must look like US-001"),
   title: z.string().min(1),
@@ -294,6 +303,10 @@ export const UserStory = z.object({
   requirements: z.array(z.string().regex(/^REQ-\d+$/)).min(1),
   acceptanceCriteria: z.array(AcceptanceCriterion).default([]),
   status: StoryStatus.default("draft"),
+  /** `deprecated` = obsolete, excluded from gaps/coverage. Absent on old data → active. */
+  lifecycle: StoryLifecycle.default("active"),
+  /** Story ids (US-xxx) that supersede this one. Only meaningful when deprecated. */
+  replacedBy: z.array(z.string().regex(/^US-\d+$/)).default([]),
   /** UI platforms this story must be materialized on. Drives the per-platform
    *  screen coverage check; empty falls back to config.uiPlatforms. */
   platforms: z.array(ScreenPlatform).default([]),

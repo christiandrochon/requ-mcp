@@ -155,6 +155,87 @@ components:
           type: string
       required:
         - error
+    UserStory:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: ^US-\d+$
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          default: ""
+        requirements:
+          type: array
+          items:
+            type: string
+            pattern: ^REQ-\d+$
+          minItems: 1
+        acceptanceCriteria:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                pattern: ^AC-\d+$
+              text:
+                type: string
+                minLength: 1
+            required:
+              - id
+              - text
+          default: []
+        status:
+          type: string
+          enum:
+            - draft
+            - ready
+            - in_progress
+            - done
+          default: draft
+        lifecycle:
+          type: string
+          enum:
+            - active
+            - deprecated
+          default: active
+        replacedBy:
+          type: array
+          items:
+            type: string
+            pattern: ^US-\d+$
+          default: []
+        platforms:
+          type: array
+          items:
+            type: string
+            enum:
+              - mobile
+              - web
+              - desktop
+              - tablet
+          default: []
+        dataFields:
+          type: array
+          items:
+            type: string
+          default: []
+        removed:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - requirements
+        - createdAt
+        - updatedAt
   parameters: {}
 paths:
   /api/scenarios:
@@ -361,4 +442,208 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/TagCount"
+  /api/stories:
+    get:
+      summary: List stories
+      description: "`lifecycle=active|deprecated` narrows the list; absent or `all`
+        returns every story."
+      parameters:
+        - schema:
+            type: string
+            description: Project slug (required when >1 project loaded).
+          required: false
+          name: project
+          in: query
+        - schema:
+            type: string
+            description: Project key (alternative to slug).
+          required: false
+          name: key
+          in: query
+        - schema:
+            type: string
+            enum:
+              - active
+              - deprecated
+              - all
+          required: false
+          name: lifecycle
+          in: query
+      responses:
+        "200":
+          description: Stories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserStory"
+  /api/stories/{id}/deprecate:
+    post:
+      summary: Deprecate a story
+      description: Keeps the story but excludes it from gaps and coverage.
+        `replacedBy` (optional) must list existing other stories. Working
+        (draft) version only.
+      parameters:
+        - schema:
+            type: string
+            example: US-007
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            description: Project slug (required when >1 project loaded).
+          required: false
+          name: project
+          in: query
+        - schema:
+            type: string
+            description: Project key (alternative to slug).
+          required: false
+          name: key
+          in: query
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                replacedBy:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: The deprecated story
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStory"
+        "400":
+          description: Invalid replacedBy (INVALID_REPLACEMENT)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown story
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Version is locked (VERSION_LOCKED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/stories/{id}/restore:
+    post:
+      summary: Restore a deprecated story
+      parameters:
+        - schema:
+            type: string
+            example: US-007
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            description: Project slug (required when >1 project loaded).
+          required: false
+          name: project
+          in: query
+        - schema:
+            type: string
+            description: Project key (alternative to slug).
+          required: false
+          name: key
+          in: query
+      responses:
+        "200":
+          description: The active story
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStory"
+        "404":
+          description: Unknown story
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Version is locked (VERSION_LOCKED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/stories/{id}:
+    delete:
+      summary: Delete a story from the draft version
+      description: Tombstones the story in the working version (a locked version keeps
+        it). Screen links and other stories' replacedBy references are dropped;
+        tagged scenarios are kept and reported as dangling.
+      parameters:
+        - schema:
+            type: string
+            example: US-007
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+            description: Project slug (required when >1 project loaded).
+          required: false
+          name: project
+          in: query
+        - schema:
+            type: string
+            description: Project key (alternative to slug).
+          required: false
+          name: key
+          in: query
+      responses:
+        "200":
+          description: What was deleted and unlinked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                  id:
+                    type: string
+                  detachedScreens:
+                    type: array
+                    items:
+                      type: string
+                  detachedReplacedBy:
+                    type: array
+                    items:
+                      type: string
+                  danglingScenarios:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - deleted
+                  - id
+                  - detachedScreens
+                  - detachedReplacedBy
+                  - danglingScenarios
+        "404":
+          description: Unknown story
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Version is locked (VERSION_LOCKED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 webhooks: {}

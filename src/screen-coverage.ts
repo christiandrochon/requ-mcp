@@ -184,7 +184,7 @@ export function checkUiCoverage(input: UiCheckInput): UiCoverageReport {
   // Screens are scoped by their own phase; stories inherit scope from their
   // requirements (a story has no phase of its own).
   const scopedScreens = screens.filter((sc) => inScope(sc.phase, phase, phases, mode));
-  const scopedStories = stories.filter((s) => storyInScope(s, phase, reqPhaseById, phases, mode));
+  const scopedStories = stories.filter((s) => s.lifecycle !== "deprecated" && storyInScope(s, phase, reqPhaseById, phases, mode));
 
   // --- Functional + platform coverage (per story) ---------------------------
   const byStory: StoryUiRow[] = [];

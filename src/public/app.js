@@ -87,6 +87,8 @@ document.addEventListener('alpine:init', function () {
       // ── Story filters ────────────────────────────────────────────────────────
       storySearch: '',
       storyStatusFilter: 'all',
+      storyLifecycleFilter: 'all',
+      storyError: '',
       storyPhaseFilter: 'all',
       storyExpanded: null,
 
@@ -1671,6 +1673,44 @@ document.addEventListener('alpine:init', function () {
         }
       },
 
+      /** POST/DELETE a story lifecycle action, then refresh everything that counts stories. */
+      async _storyAction(method, path, payload, failMsg) {
+        this.storyError = '';
+        try {
+          var init = { method: method };
+          if (payload !== undefined) { init.headers = { 'Content-Type': 'application/json' }; init.body = JSON.stringify(payload); }
+          var res = await window.fetch(this.apiUrl(path), init);
+          var body = await res.json().catch(function () { return {}; });
+          if (!res.ok) { this.storyError = body.error || failMsg; return false; }
+          await Promise.all([this.loadStories(), this.loadCoverage(), this.loadGaps(), this.loadSummary()]);
+          return true;
+        } catch (e) {
+          this.storyError = 'Could not reach the server.';
+          return false;
+        }
+      },
+
+      async deprecateStoryItem(story) {
+        var input = window.prompt(
+          'Deprecate ' + story.id + ' "' + story.title + '"?\n\nIt stays visible but no longer counts in gaps and coverage.\n' +
+          'Replaced by (optional, comma-separated story ids, e.g. US-010, US-011):', '');
+        if (input === null) return;
+        var ids = input.split(',').map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean);
+        await this._storyAction('POST', '/api/stories/' + encodeURIComponent(story.id) + '/deprecate', { replacedBy: ids }, 'Could not deprecate ' + story.id + '.');
+      },
+
+      async restoreStoryItem(story) {
+        await this._storyAction('POST', '/api/stories/' + encodeURIComponent(story.id) + '/restore', undefined, 'Could not restore ' + story.id + '.');
+      },
+
+      async deleteStoryItem(story) {
+        if (!window.confirm('Delete story ' + story.id + ' "' + story.title + '" from this version?\n\nA locked version keeps it. Screen links to it are removed. ' +
+          'To keep it but stop counting it, use Deprecate instead.\n\nThis is recorded in the audit log.')) return;
+        if (await this._storyAction('DELETE', '/api/stories/' + encodeURIComponent(story.id), undefined, 'Could not delete ' + story.id + '.')) {
+          if (this.storyExpanded === story.id) this.storyExpanded = null;
+        }
+      },
+
       async deletePhaseItem(phase) {
         this.deleteError = { message: '', stories: [] };
         var assigned = this.requirements.filter(function (r) { return r.phase === phase.id; }).length;
@@ -2434,6 +2474,7 @@ document.addEventListener('alpine:init', function () {
         var self = this;
         return this.stories.filter(function (s) {
           if (self.storyStatusFilter !== 'all' && s.status !== self.storyStatusFilter) return false;
+          if (self.storyLifecycleFilter !== 'all' && (s.lifecycle || 'active') !== self.storyLifecycleFilter) return false;
           if (self.storyPhaseFilter !== 'all') {
             var phs = self.storyPhases(s);
             if (self.storyPhaseFilter === '(none)' ? phs.length > 0 : phs.indexOf(self.storyPhaseFilter) === -1) return false;

@@ -31,6 +31,9 @@ const TOOL_PERMISSIONS: Record<string, Permission> = {
   // --- user stories ---
   create_user_story: "story:write",
   update_user_story: "story:write",
+  deprecate_user_story: "story:write",
+  restore_user_story: "story:write",
+  delete_user_story: "story:write",
   add_acceptance_criterion: "story:write",
   delete_acceptance_criterion: "story:write",
 
@@ -133,6 +136,8 @@ const ROUTE_PERMISSIONS: Array<{ method: string; pattern: RegExp; permission: Pe
   { method: "POST",  pattern: /^\/api\/scenarios\/execute$/,        permission: "execution:write" },
   { method: "POST",  pattern: /^\/api\/executions$/,                permission: "execution:write" },
   { method: "DELETE", pattern: /^\/api\/requirements\/[^/]+$/,     permission: "requirement:write" },
+  { method: "DELETE", pattern: /^\/api\/stories\/[^/]+$/,          permission: "story:write" },
+  { method: "POST",  pattern: /^\/api\/stories\/[^/]+\/(deprecate|restore)$/, permission: "story:write" },
   { method: "DELETE", pattern: /^\/api\/phases\/[^/]+$/,           permission: "phase:write" },
   { method: "GET",   pattern: /^\/api\/audit$/,                     permission: "audit:read" },
   { method: "GET",   pattern: /^\/api\/history$/,                   permission: "history:read" },

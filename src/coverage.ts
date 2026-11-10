@@ -273,6 +273,7 @@ export function countsByPhase(
     bucket(r.phase && orderById.has(r.phase) ? r.phase : "").requirements++;
   }
   for (const s of stories) {
+    if (!isActiveStory(s)) continue; // deprecated stories are not counted (scenarios still map through storyById)
     bucket(earliest(storyPhases(s, reqPhaseById))).stories++;
   }
   for (const sc of scenarios) {
@@ -469,6 +470,16 @@ export function computeStoryCoverage(
   };
 }
 
+/**
+ * Whether a story counts toward gaps and coverage. Deprecated stories are kept
+ * for reading but are no longer work to cover.
+ * @param story the story to test
+ * @returns true unless the story is deprecated
+ */
+export function isActiveStory(story: UserStory): boolean {
+  return story.lifecycle !== "deprecated";
+}
+
 export function buildReport(
   requirements: Requirement[],
   stories: UserStory[],
@@ -484,7 +495,7 @@ export function buildReport(
   // phase map from the FULL list before narrowing `requirements` itself.
   const reqPhaseById = requirementPhaseMap(requirements);
   requirements = requirements.filter((r) => inScope(r.phase, phaseId, phases, mode));
-  stories = stories.filter((s) => storyInScope(s, phaseId, reqPhaseById, phases, mode));
+  stories = stories.filter((s) => isActiveStory(s) && storyInScope(s, phaseId, reqPhaseById, phases, mode));
 
   const mrByStory = mergedMrByStory(vcsRefs);
   const storyCov = stories.map((s) => computeStoryCoverage(s, scenariosByStory, status, mrByStory.get(s.id)));

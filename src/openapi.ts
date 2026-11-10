@@ -4,7 +4,7 @@ import {
   OpenApiGeneratorV31,
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
-import { Scenario } from "./schema.js";
+import { Scenario, UserStory } from "./schema.js";
 
 /**
  * OpenAPI 3.1 contract for the scenario REST API. Component schemas are derived
@@ -133,6 +133,80 @@ export function buildOpenApiDocument(version = "0.0.0"): object {
     request: { query: z.object({ ...projectParams }) },
     responses: {
       200: { description: "Tags across stored scenarios", content: { "application/json": { schema: z.array(TagCount) } } },
+    },
+  });
+
+  // --- Story lifecycle (ADR 0004): deprecate / restore / delete, draft version only ---
+  const StorySchema = registry.register("UserStory", UserStory.openapi("UserStory"));
+  const storyParams = {
+    params: z.object({ id: z.string().openapi({ example: "US-007" }) }),
+    query: z.object({ ...projectParams }),
+  };
+  const err = (description: string) => ({ description, content: { "application/json": { schema: ErrorResponse } } });
+
+  registry.registerPath({
+    method: "get",
+    path: "/api/stories",
+    summary: "List stories",
+    description: "`lifecycle=active|deprecated` narrows the list; absent or `all` returns every story.",
+    request: { query: z.object({ ...projectParams, lifecycle: z.enum(["active", "deprecated", "all"]).optional() }) },
+    responses: { 200: { description: "Stories", content: { "application/json": { schema: z.array(StorySchema) } } } },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/api/stories/{id}/deprecate",
+    summary: "Deprecate a story",
+    description:
+      "Keeps the story but excludes it from gaps and coverage. `replacedBy` (optional) must list existing other stories. Working (draft) version only.",
+    request: {
+      ...storyParams,
+      body: { content: { "application/json": { schema: z.object({ replacedBy: z.array(z.string()).optional() }) } } },
+    },
+    responses: {
+      200: { description: "The deprecated story", content: { "application/json": { schema: StorySchema } } },
+      400: err("Invalid replacedBy (INVALID_REPLACEMENT)"),
+      404: err("Unknown story"),
+      409: err("Version is locked (VERSION_LOCKED)"),
+    },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/api/stories/{id}/restore",
+    summary: "Restore a deprecated story",
+    request: storyParams,
+    responses: {
+      200: { description: "The active story", content: { "application/json": { schema: StorySchema } } },
+      404: err("Unknown story"),
+      409: err("Version is locked (VERSION_LOCKED)"),
+    },
+  });
+
+  registry.registerPath({
+    method: "delete",
+    path: "/api/stories/{id}",
+    summary: "Delete a story from the draft version",
+    description:
+      "Tombstones the story in the working version (a locked version keeps it). Screen links and other stories' replacedBy references are dropped; tagged scenarios are kept and reported as dangling.",
+    request: storyParams,
+    responses: {
+      200: {
+        description: "What was deleted and unlinked",
+        content: {
+          "application/json": {
+            schema: z.object({
+              deleted: z.boolean(),
+              id: z.string(),
+              detachedScreens: z.array(z.string()),
+              detachedReplacedBy: z.array(z.string()),
+              danglingScenarios: z.array(z.string()),
+            }),
+          },
+        },
+      },
+      404: err("Unknown story"),
+      409: err("Version is locked (VERSION_LOCKED)"),
     },
   });
 
