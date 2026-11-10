@@ -4,6 +4,32 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### Added
+- User stories can be **deprecated**: `deprecate_user_story` (optional
+  `replacedBy`, validated), `restore_user_story`, and the REST routes
+  `POST /api/stories/:id/deprecate` and `/restore`. A deprecated story stays
+  readable but is excluded from `find_gaps`, coverage reports, the traceability
+  summary and the per-phase story counts. `list_user_stories` /
+  `search_user_stories` and `GET /api/stories` take a `lifecycle` filter
+  (`active`, `deprecated`, `all`; default `all`). The web UI greys deprecated
+  stories, shows their replacement and offers Deprecate / Restore.
+- User stories can be **deleted** from the draft version: `delete_user_story`
+  and `DELETE /api/stories/:id`. The story becomes a tombstone (the locked
+  version keeps it, `diff_versions` reports it removed); a locked version
+  refuses the delete. Screen links and other stories' `replacedBy` references
+  are dropped; tagged scenarios are kept and reported as dangling. Audited and
+  recorded in the change history.
+- New story fields `lifecycle` (`active` | `deprecated`, default `active`) and
+  `replacedBy` (default `[]`). Existing data loads unchanged, no migration.
+  See [ADR 0004](docs/adr/0004-story-deprecation-and-removal.md).
+- `smoke:story` test covering the above.
+
+### Changed
+- The overview `stories` count excludes deprecated stories; they are reported
+  in the new `storiesDeprecated`.
+- Specification edits to a story's `lifecycle` / `replacedBy` are frozen on a
+  locked version, like any other specification field.
+
 ## [2.3.3] – 2026-10-20
 
 ### Fixed

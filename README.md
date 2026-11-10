@@ -633,6 +633,7 @@ usual one — with `REQU_LDAP_ALLOW_PLAINTEXT=true` while it is plaintext.
 | `init_project` | setup | Verify the Conductor folder exists & is valid, then create the project (requires a `key`), record Conductor + report path, optional first phase |
 | `check_conductor` | setup | Inspect the Conductor folder (exists? valid? name? feature count?) without writing anything |
 | `create_requirement` / `list_requirements` / `get_requirement` / `update_requirement` / `delete_requirement` | server | Manage imported requirements (with `components`). Deleting is refused while a user story still links to the requirement |
+| `deprecate_user_story` / `restore_user_story` / `delete_user_story` | server | Obsolete stories: deprecate (kept, excluded from gaps and coverage, optional `replacedBy`), restore, or delete from the draft version (refused on a locked version). `list_user_stories` takes a `lifecycle` filter |
 | `assign_requirements_to_phase` | release | Move many requirements onto a phase at once — by explicit `ids` or by filter (status / component / tag / current phase); `dryRun` previews |
 | `create_user_story` | PO | Author a story (rejects unless it links ≥1 existing requirement) |
 | `update_user_story` / `add_acceptance_criterion` / `delete_acceptance_criterion` / `list_user_stories` / `get_user_story` | PO | Edit stories & criteria (deleting a criterion never renumbers the others) |
