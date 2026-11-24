@@ -77,6 +77,9 @@ jobs:
       - name: Smoke test — authentication, RBAC, 2FA and audit
         run: npm run smoke:auth
 
+      - name: Smoke test — ingest scenario status mapping
+        run: npm run smoke:ingest-status
+
       - name: Smoke test — PostgreSQL backend
         run: npm run smoke:pg
         env:
