@@ -24,6 +24,15 @@ All notable changes to this project will be documented here.
   See [ADR 0004](docs/adr/0004-story-deprecation-and-removal.md).
 - `smoke:story` test covering the above.
 
+### Fixed
+- `import_execution_report`: a cucumber scenario with an `undefined` step (no
+  step definition) is now recorded as `pending` instead of `fail`: it was not
+  run to the end, it did not fail. `ambiguous` (several matching definitions)
+  stays `fail`, being a defect of the test suite. A scenario with a `failed`
+  step is `fail` even if it also has `undefined` steps. `skipped` / `pending`
+  steps keep giving `pending`. Mapping: any `failed`/`ambiguous` -> fail; all
+  `passed` -> pass; otherwise pending. Tested by `smoke:ingest-status`.
+
 ### Changed
 - The overview `stories` count excludes deprecated stories; they are reported
   in the new `storiesDeprecated`.

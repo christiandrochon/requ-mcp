@@ -262,6 +262,12 @@ Conductor runs `cucumber-js --format json`. Point `import_execution_report` at
 that file and it records one execution per scenario into a phase, then reports
 how many results mapped onto a linked test.
 
+Scenario status comes from its steps: any `failed` or `ambiguous` step gives
+`fail` (a failed step wins even next to `undefined` ones); all `passed` gives
+`pass`; anything else (`undefined` = no step definition, `skipped`, `pending`)
+gives `pending`, since the scenario was not proven. Examples of a Scenario
+Outline are folded: any fail, else any pending, else pass.
+
 It pairs with [Conductor](https://github.com/nouhouari/conductor): Conductor
 owns the e2e *test definitions*; requ-mcp owns the *requirements and their
 coverage*. A test reference is a cucumber scenario (feature + scenario name);

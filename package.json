@@ -26,6 +26,7 @@
     "smoke:versions": "tsx scripts/smoke-versions.ts",
     "smoke:i18n": "tsx scripts/smoke-gherkin-i18n.ts",
     "smoke:outline": "tsx scripts/smoke-outline-executions.ts",
+    "smoke:ingest-status": "tsx scripts/smoke-ingest-status.ts",
     "smoke:delete": "tsx scripts/smoke-delete.ts",
     "smoke:story": "tsx scripts/smoke-story-lifecycle.ts",
     "smoke:auth": "tsx scripts/smoke-auth.ts",
