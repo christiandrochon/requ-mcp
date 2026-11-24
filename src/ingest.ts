@@ -42,13 +42,25 @@ interface CucumberFeature {
   elements?: CucumberElement[];
 }
 
-/** Map cucumber step statuses for one scenario to our pass/fail/pending. */
-function deriveStatus(stepStatuses: string[]): TestStatus {
+/*
+ * Map the cucumber step statuses of one scenario to our pass/fail/pending.
+ *
+ * @param stepStatuses raw cucumber step statuses (passed, failed, skipped,
+ *   pending, undefined, ambiguous, unknown values), case-insensitive.
+ * @returns "fail" if any step failed or is ambiguous; "pass" if there is at
+ *   least one step and all passed; otherwise "pending" (not proven yet).
+ *
+ * Why: an `undefined` step has no step definition, so the scenario was never
+ * executed to the end: it has not failed, it is not run yet -> pending. An
+ * `ambiguous` step (several matching definitions) is a defect of the test
+ * suite itself that must be visible and fixed -> fail. A real `failed` step
+ * always wins, even when `undefined` steps are also present.
+ */
+export function deriveStatus(stepStatuses: string[]): TestStatus {
   const s = stepStatuses.map((x) => x.toLowerCase());
-  // A broken or unrunnable step fails the scenario.
-  if (s.some((x) => x === "failed" || x === "undefined" || x === "ambiguous")) return "fail";
+  if (s.some((x) => x === "failed" || x === "ambiguous")) return "fail";
   if (s.length > 0 && s.every((x) => x === "passed")) return "pass";
-  // Some pending/skipped, nothing failed → not yet proven.
+  // undefined / skipped / pending / unknown, nothing failed -> not yet proven.
   return "pending";
 }
 
