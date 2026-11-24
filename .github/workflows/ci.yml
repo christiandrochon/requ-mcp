@@ -77,6 +77,18 @@ jobs:
       - name: Smoke test — authentication, RBAC, 2FA and audit
         run: npm run smoke:auth
 
+      - name: Smoke test — ingest scenario status mapping
+        run: npm run smoke:ingest-status
+
+      - name: Smoke test — Gherkin i18n (French features)
+        run: npm run smoke:i18n
+
+      - name: Smoke test — scenario outline example matching
+        run: npm run smoke:outline
+
+      - name: Smoke test — story deprecation, restore and deletion
+        run: npm run smoke:story
+
       - name: Smoke test — PostgreSQL backend
         run: npm run smoke:pg
         env:
